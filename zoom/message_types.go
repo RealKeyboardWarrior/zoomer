@@ -284,6 +284,24 @@ type SharingReceivingChannelCloseIndication struct {
 	SSRC int `json:"ssrc"`
 }
 
+// {"evt":12303,"body":{"subInfoList":[{"id":16778240,"size":2,"bOn":false}]},"seq":18}
+type VideoSubscribeRequest struct {
+	SubInfoList []VideoSubInfo `json:"subInfoList"`
+}
+type VideoSubInfo struct {
+	ID   int  `json:"id"`
+	BOn  bool `json:"bOn"`
+	Size int  `json:"size"`
+}
+
+// {"evt":12305,"body":{"subIDList":[{"id":16778240}]},"seq":17}
+type VideoUnsubscribeRequest struct {
+	SubIDList []VideoSubID `json:"subIDList"`
+}
+type VideoSubID struct {
+	ID int `json:"id"`
+}
+
 type DataChannelSendOfferToRWG struct {
 	Offer string `json:"offer"`
 	Type  int    `json:"type"`

@@ -52,6 +52,8 @@ var msgTypes = map[int]reflect.Type{
 	WS_SHARING_ENCRYPT_KEY_INDICATION:         reflect.TypeOf(SharingEncryptKeyIndication{}),
 	WS_SHARING_RECEIVING_CHL_READY_INDICATION: reflect.TypeOf(SharingReceivingChannelReadyIndication{}),
 	WS_SHARING_RECEIVING_CHL_CLOSE_INDICATION: reflect.TypeOf(SharingReceivingChannelCloseIndication{}),
+	WS_VIDEO_MULTI_SUBSCRIBE_REQ:              reflect.TypeOf(VideoSubscribeRequest{}),
+	WS_VIDEO_MULTI_UNSUBSCRIBE_REQ:            reflect.TypeOf(VideoUnsubscribeRequest{}),
 
 	WS_CONF_COHOST_CHANGE_INDICATION: reflect.TypeOf(ConferenceCohostChangeIndication{}),
 	WS_AUDIO_ASN_INDICATION:          reflect.TypeOf(AudioAsnIndication{}),

@@ -289,6 +289,36 @@ func (session *ZoomSession) SharingSubscribeRequest(id int, size int) error {
 	return nil
 }
 
+func (session *ZoomSession) VideoSubscribeRequest(id int, size int) error {
+	sub := VideoSubInfo{
+		ID:   id,
+		BOn:  true,
+		Size: size,
+	}
+	sendBody := VideoSubscribeRequest{
+		SubInfoList: []VideoSubInfo{sub},
+	}
+	err := session.SendMessage(session.websocketConnection, WS_VIDEO_MULTI_SUBSCRIBE_REQ, sendBody)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (session *ZoomSession) VideoUnsubscribeRequest(id int) error {
+	sub := VideoSubID{
+		ID: id,
+	}
+	sendBody := VideoUnsubscribeRequest{
+		SubIDList: []VideoSubID{sub},
+	}
+	err := session.SendMessage(session.websocketConnection, WS_VIDEO_MULTI_UNSUBSCRIBE_REQ, sendBody)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // host required
 func (session *ZoomSession) EndMeeting() error {
 	sendBody := ConferenceEndRequest{}

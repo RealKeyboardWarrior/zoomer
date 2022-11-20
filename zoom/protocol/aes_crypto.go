@@ -7,8 +7,14 @@ import (
 	"crypto/sha256"
 )
 
+type AesKeyType byte
+
 const (
-	AES_GCM_TYPE       = 0x02
+	KEY_TYPE_VIDEO       AesKeyType = 0x00
+	KEY_TYPE_AUDIO       AesKeyType = 0x01 // TODO: assumption not tested
+	KEY_TYPE_SCREENSHARE AesKeyType = 0x02
+)
+const (
 	AES_GCM_TAG_LENGTH = 16
 )
 
@@ -16,8 +22,8 @@ type AesGcmCrypto struct {
 	cipher cipher.AEAD
 }
 
-func NewAesGcmCrypto(sharedMeetingKey, secretNonce []byte) (*AesGcmCrypto, error) {
-	derivedKey := DeriveEncryptionKey(sharedMeetingKey, secretNonce)
+func NewAesGcmCrypto(sharedMeetingKey, secretNonce []byte, keyType AesKeyType) (*AesGcmCrypto, error) {
+	derivedKey := DeriveEncryptionKey(sharedMeetingKey, secretNonce, keyType)
 
 	block, err := aes.NewCipher(derivedKey)
 	if err != nil {
@@ -48,11 +54,11 @@ func (c *AesGcmCrypto) Decrypt(nonce, cipherText []byte) ([]byte, error) {
 	return plainText, nil
 }
 
-func DeriveEncryptionKey(sharedMeetingKey, secretNonce []byte) []byte {
+func DeriveEncryptionKey(sharedMeetingKey, secretNonce []byte, keyType AesKeyType) []byte {
 	// TODO: assert key length & secret nonce length
 	message := make([]byte, 0)
 	message = append(message, secretNonce...)
-	message = append(message, AES_GCM_TYPE)
+	message = append(message, byte(keyType))
 
 	mac := hmac.New(sha256.New, sharedMeetingKey)
 	mac.Write(message)

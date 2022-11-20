@@ -6,7 +6,6 @@ import (
 	"io"
 	"log"
 	"os"
-	"sync"
 	"time"
 
 	"net/http"
@@ -16,24 +15,36 @@ import (
 )
 
 const (
-	PING             = 0x00
-	RTP              = 0x4D
+	PING                = 0x00
+	RTP_SCREENSHARE_PKT = 0x4D
+	// RTP_VIDEO_PKT          = 0x02 // DEPRECRATED!
+	RTP_VIDEO_PKT    = 0x67
 	RTCP             = 0x4E
 	AES_GCM_IV_VALUE = 0x42
 )
 
-type ZoomSharingStream struct {
-	mutex sync.Mutex
-	recv  *websocket.Conn
-	send  *websocket.Conn
+type ZoomStreams struct {
+	recv *websocket.Conn
+	send *websocket.Conn
 
 	decoder *ZoomRtpDecoder
-
-	mySecretNonce []byte
-	sendQueue     chan []byte
 }
 
-func CreateZoomSharingStream(session *ZoomSession) (*ZoomSharingStream, error) {
+func createWebSocketUrl(session *ZoomSession, subType string, mode string) string {
+	values := url.Values{}
+	values.Set("type", subType)
+	values.Set("cid", session.JoinInfo.ConID)
+	values.Set("mode", mode)
+	url := &url.URL{
+		Scheme:   "wss",
+		Host:     session.RwgInfo.Rwg,
+		Path:     "/wc/media/" + session.MeetingNumber,
+		RawQuery: values.Encode(),
+	}
+	return url.String()
+}
+
+func CreateZoomStreams(session *ZoomSession, isScreenShare bool) (*ZoomStreams, error) {
 	if session.JoinInfo == nil {
 		return nil, errors.New("Zoom session does not have valid JoinInfo")
 	}
@@ -46,37 +57,45 @@ func CreateZoomSharingStream(session *ZoomSession) (*ZoomSharingStream, error) {
 		return nil, errors.New("Zoom session does not have valid ZoomID")
 	}
 
-	secretNonce, err := ZoomEscapedBase64Decode(session.JoinInfo.ZoomID)
+	/*
+		secretNonce, err := ZoomEscapedBase64Decode(session.JoinInfo.ZoomID)
+		if err != nil {
+			return nil, err
+		}
+	*/
+
+	var downstream string
+	if isScreenShare {
+		// Screen sharing
+		downstream = createWebSocketUrl(session, "s", "1")
+	} else {
+		// Normal video camera sharing
+		downstream = createWebSocketUrl(session, "v", "5")
+	}
+	recv, err := createWebsocket("recv", downstream)
 	if err != nil {
 		return nil, err
 	}
 
-	values := url.Values{}
-	values.Set("type", "s")
-	values.Set("cid", session.JoinInfo.ConID)
-
-	baseUrl := &url.URL{
-		Scheme:   "wss",
-		Host:     session.RwgInfo.Rwg,
-		Path:     "/wc/media/" + session.MeetingNumber,
-		RawQuery: values.Encode(),
+	// Upstream for both screenshare and audio is 2.
+	// TODO: should be for video as well - verify
+	var upstream string
+	if isScreenShare {
+		// Screen sharing
+		upstream = createWebSocketUrl(session, "s", "2")
+	} else {
+		// Normal video camera sharing
+		upstream = createWebSocketUrl(session, "v", "2")
 	}
-
-	recv, err := createWebsocket("SharingRecv", baseUrl.String()+"&mode=1")
+	send, err := createWebsocket("send", upstream)
 	if err != nil {
 		return nil, err
 	}
 
-	send, err := createWebsocket("SharingSend", baseUrl.String()+"&mode=2")
-	if err != nil {
-		return nil, err
-	}
-
-	final := &ZoomSharingStream{
-		recv:          recv,
-		send:          send,
-		decoder:       NewZoomRtpDecoder(session.ParticipantRoster),
-		mySecretNonce: secretNonce,
+	final := &ZoomStreams{
+		recv:    recv,
+		send:    send,
+		decoder: NewZoomRtpDecoder(session.ParticipantRoster, isScreenShare),
 	}
 
 	go final.StartReceiveChannel()
@@ -84,16 +103,20 @@ func CreateZoomSharingStream(session *ZoomSession) (*ZoomSharingStream, error) {
 	return final, nil
 }
 
+// wss://zoomamn89rwg.am.zoom.us/wc/media/87144340981?type=s&cid=784C146F-A782-A49B-4487-0148303B7D86&mode=1
+
 func Recorder() (io.WriteCloser, error) {
 	f, err := os.Create(time.Now().Format("2006-01-02-15-04-05") + ".h264")
 	if err != nil {
 		return nil, err
 	}
 	return f, nil
+	// defer f.Close()
+	// n2, err := f.Write(d2)
 }
 
 func createWebsocket(name string, websocketUrl string) (*websocket.Conn, error) {
-	log.Printf("CreateZoomSharingStream: dialing url= %v", websocketUrl)
+	log.Printf("CreateZoomStreams: dialing url= %v", websocketUrl)
 	dialer := websocket.Dialer{
 		EnableCompression: true,
 	}
@@ -115,8 +138,8 @@ func createWebsocket(name string, websocketUrl string) (*websocket.Conn, error) 
 	return connection, nil
 }
 
-func (sharingStream *ZoomSharingStream) StartReceiveChannel() {
-	connection := sharingStream.recv
+func (streams *ZoomStreams) StartReceiveChannel() {
+	connection := streams.recv
 
 	closeHandler := func(i int, msg string) error {
 		log.Printf("Closing : %v %v", i, msg)
@@ -130,7 +153,7 @@ func (sharingStream *ZoomSharingStream) StartReceiveChannel() {
 	}
 	defer recorder.Close()
 
-	decoder := sharingStream.decoder
+	decoder := streams.decoder
 
 	for {
 		messageType, p, err := connection.ReadMessage()
@@ -147,9 +170,13 @@ func (sharingStream *ZoomSharingStream) StartReceiveChannel() {
 				return
 			}
 			// RTP packet
-		} else if p[0] == RTP {
+		} else if p[0] == RTP_SCREENSHARE_PKT || p[0] == RTP_VIDEO_PKT {
 			log.Printf("pkt = %v", hex.EncodeToString(p))
-			frame, err := decoder.Decode(p[4:])
+			start := 4
+			if p[0] == RTP_VIDEO_PKT {
+				start = 28
+			}
+			frame, err := decoder.Decode(p[start:])
 			if err != nil {
 				log.Fatal(err)
 				return
@@ -174,12 +201,12 @@ func (sharingStream *ZoomSharingStream) StartReceiveChannel() {
 
 }
 
-func (sharingStream *ZoomSharingStream) SetSharedMeetingKey(encryptionKey string) error {
+func (streams *ZoomStreams) SetSharedMeetingKey(encryptionKey string) error {
 	sharedMeetingKey, err := ZoomEscapedBase64Decode(encryptionKey)
 	if err != nil {
 		return err
 	}
 
-	sharingStream.decoder.SetSharedMeetingKey(sharedMeetingKey)
+	streams.decoder.SetSharedMeetingKey(sharedMeetingKey)
 	return nil
 }

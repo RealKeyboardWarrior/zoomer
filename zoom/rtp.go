@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/chris124567/zoomer/zoom/api/protocol"
+	"github.com/RealKeyboardWarrior/zoomer/zoom/protocol"
 	"github.com/pion/rtcp"
 	"github.com/pion/rtp"
 )
@@ -26,16 +26,18 @@ const (
 )
 
 type ZoomRtpDecoder struct {
+	isScreenShare     bool
 	NaluPacketizer    *protocol.NaluPacketizer
 	ParticipantRoster *ZoomParticipantRoster
 }
 
-func NewZoomRtpDecoder(participantRoster *ZoomParticipantRoster) *ZoomRtpDecoder {
+func NewZoomRtpDecoder(participantRoster *ZoomParticipantRoster, isScreenShare bool) *ZoomRtpDecoder {
 	return &ZoomRtpDecoder{
 		// TODO: NALU packetizer thinks its one big stream, so doesnt multiplex fragmented units
 		// very well here, maybe needs to map ssrc -> packetizer
 		NaluPacketizer:    protocol.NewNaluPacketizer(),
 		ParticipantRoster: participantRoster,
+		isScreenShare:     isScreenShare,
 	}
 }
 
@@ -54,23 +56,40 @@ func (parser *ZoomRtpDecoder) Decode(rawPkt []byte) (decoded []byte, err error) 
 
 	id := rtpPacket.GetExtension(RTP_EXTENSION_ID_UUID)
 
-	resolutionMeta := &protocol.RtpExtResolution{}
-	err = resolutionMeta.Unmarshal(rtpPacket.GetExtension(RTP_EXTENSION_ID_RESOLUTION))
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
+	resolutionBytes := rtpPacket.GetExtension(RTP_EXTENSION_ID_RESOLUTION)
+	var resolutionMeta *protocol.RtpExtResolution
+	if len(resolutionBytes) > 0 {
+		resolutionMeta := &protocol.RtpExtResolution{}
+		err = resolutionMeta.Unmarshal(rtpPacket.GetExtension(RTP_EXTENSION_ID_RESOLUTION))
+		if err != nil {
+			log.Fatal(err)
+			return nil, err
+		}
 	}
 
-	svcMeta := &protocol.RtpExtFrameInfo{}
-	err = svcMeta.Unmarshal(rtpPacket.GetExtension(RTP_EXTENSION_ID_FRAME_INFO))
-	if err != nil {
-		log.Fatal(err)
-		return nil, err
+	svcBytes := rtpPacket.GetExtension(RTP_EXTENSION_ID_RESOLUTION)
+	var svcMeta *protocol.RtpExtFrameInfo
+	if len(resolutionBytes) > 0 {
+		svcMeta := &protocol.RtpExtFrameInfo{}
+		err = svcMeta.Unmarshal(svcBytes)
+		if err != nil {
+			log.Fatal(err)
+			return nil, err
+		}
 	}
 
 	log.Printf("rtp header [M = %v] [PT type=%v] [SN seq=%v] [TS timestamp=%v] [P padding=%v size=%v] [ssrc=%v csrc=%v]", rtpPacket.Marker, rtpPacket.PayloadType, rtpPacket.SequenceNumber, rtpPacket.Timestamp, rtpPacket.Padding, rtpPacket.PaddingSize, rtpPacket.SSRC, rtpPacket.CSRC)
 	log.Printf("rtp extensions [RtpId id=%v] [meta=%v] [%v]", id, svcMeta, resolutionMeta)
 	log.Printf("rtp payload [PYLD size=%v]", len(rtpPacket.Payload))
+
+	if rtpPacket.PayloadType == 110 {
+		log.Printf("rtp [PT type=10] payload=%v", hex.EncodeToString(rtpPacket.Payload))
+		return
+	} else if rtpPacket.PayloadType == 98 {
+		// Expected payload format
+	} else {
+		return nil, fmt.Errorf("payload type has unexpected value %v", rtpPacket.PayloadType)
+	}
 
 	payload := rtpPacket.Payload
 	// TODO: header length
@@ -88,7 +107,7 @@ func (parser *ZoomRtpDecoder) Decode(rawPkt []byte) (decoded []byte, err error) 
 	// 3. Exit if we don't yet have a complete packet in our NALU packetizer.
 	// TODO: ideally this would be more tightly coupled with the loop that it's running in.
 	if complete == nil {
-		return nil, nil
+		return
 	}
 
 	// 4. Decode the inner encrypted payload
@@ -106,7 +125,13 @@ func (parser *ZoomRtpDecoder) Decode(rawPkt []byte) (decoded []byte, err error) 
 		log.Printf("body key=%v sn=%v iv=%v body=%v tag=%v", hex.EncodeToString(sharedMeetingKey), hex.EncodeToString(secretNonce), hex.EncodeToString(decodedPayload.IV), hex.EncodeToString(decodedPayload.Ciphertext), hex.EncodeToString(decodedPayload.Tag))
 	}
 
-	decryptor, err := protocol.NewAesGcmCrypto(sharedMeetingKey, secretNonce)
+	var keyType protocol.AesKeyType
+	if parser.isScreenShare {
+		keyType = protocol.KEY_TYPE_SCREENSHARE
+	} else {
+		keyType = protocol.KEY_TYPE_VIDEO
+	}
+	decryptor, err := protocol.NewAesGcmCrypto(sharedMeetingKey, secretNonce, keyType)
 	if err != nil {
 		return nil, err
 	}
@@ -242,7 +267,8 @@ func encryptPayloadWithRoster(roster *ZoomParticipantRoster, ssrc int, messageCo
 	binary.BigEndian.PutUint16(IV, uint16(messageCounter))
 	IV = IV[:12]
 
-	encryptor, err := protocol.NewAesGcmCrypto(sharedMeetingKey, secretNonce)
+	// TODO: add keyType, hardcoded to screenshare!
+	encryptor, err := protocol.NewAesGcmCrypto(sharedMeetingKey, secretNonce, 0x02)
 	if err != nil {
 		return nil, err
 	}

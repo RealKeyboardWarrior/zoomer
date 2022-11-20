@@ -5,6 +5,29 @@ Good bot support is part of what makes Discord so nice to use.  Unfortunately, t
 Here is a demo of a basic, ~130 lines of code bot:
 ![Demonstration of basic Zoom bot functionality, controlled via meeting chat](other/demo.gif)
 
+## Audio, Video & Screenshare support
+
+* Audio
+    * ❌ Listening WebSocket
+    * ❌ RTP decoding
+    * ❌ Audio packets decoding
+    * ❌ Publishing WebSocket 
+* Video
+    * ✅ Viewing WebSocket 
+    * ✅ RTP decoding
+    * ✅ H264 decoding tested
+    * ✅ Recording of single participant (❌ but currently dumps video streams of all participants into single file, breaks)
+    * ❌ RTP encoding (see `ZoomRtpEncoder` in `zoom/rtp.go`)
+    * ✅ Publishing WebSocket
+* Screenshare
+    * ✅ Viewing WebSocket 
+    * ✅ RTP decoding (❌ RTP extension frame info not completely figured out `zoom/protocol/rtp_ext_frame_info.go`)
+    * ❌ H264 decoding (seems like a custom H264 codec, unplayable by ffmpeg)
+    * ❌ H264 encoding (need to solve decoding first)
+    * ❌ RTP encoding (see `ZoomRtpEncoder` in `zoom/rtp.go`)
+    * ✅ Publishing WebSocket
+
+   
 ## WEB SDK
 
 I created this by reverse engineering the Zoom Web SDK.  Regular web joins are captcha-gated but web SDK joins [are not](https://devforum.zoom.us/t/remove-recaptcha-on-webinars-websdk1-7-9/23054/25).  I use an API only used by the Web SDK to get tokens needed to join the meeting.  This means you need a Zoom API key/secret, specifically a JWT one.  These can be obtained on the Zoom [App Marketplace](https://marketplace.zoom.us/user/build) site.  The demo at `cmd/zoomer/main.go` reads these from the environment as `ZOOM_JWT_API_KEY` and `ZOOM_JWT_API_SECRET`.
@@ -16,16 +39,16 @@ Because the API keys are associated with your account, using this software may g
 ## PLAY WITH DEMO
 
 ```
-$ go get github.com/chris124567/zoomer
-$ cd $GOPATH/src/github.com/chris124567/zoomer
+$ go get github.com/RealKeyboardWarrior/zoomer
+$ cd $GOPATH/src/github.com/RealKeyboardWarrior/zoomer
 $ scripts/build.sh
 $ ZOOM_JWT_API_KEY="xxx" ZOOM_JWT_API_SECRET="xxx" ./zoomer -meetingNumber xxxxx -password xxxxx
 ```
 
-Feel free to use the demo as a template.  If you want to use the library elsewhere just import `github.com/chris124567/zoomer/pkg/zoom`.
+Feel free to use the demo as a template.  If you want to use the library elsewhere just import `github.com/RealKeyboardWarrior/zoomer/pkg/zoom`.
 
 ### DEMO WALKTHROUGH
-See the comments in `cmd/zoomer/main.go`
+See the comments in `main.go`
 
 ## FEATURES / SUPPORTED MESSAGE TYPES
 | Feature                                                                                                            | Send/recv | Message Name                              | Function (if send) / struct type (if recv) | Host Required               | Tested |

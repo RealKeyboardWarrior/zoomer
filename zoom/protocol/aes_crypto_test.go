@@ -18,7 +18,7 @@ func TestDeriveEncryptionKey(t *testing.T) {
 		return
 	}
 
-	streamKey := DeriveEncryptionKey(sharedKey, secretNonce)
+	streamKey := DeriveEncryptionKey(sharedKey, secretNonce, KEY_TYPE_SCREENSHARE)
 
 	expectedStreamKey, err := hex.DecodeString("aa1a283465d5194fd4e57ac16ee3299f831d26b6745557db90ebcf0f9e3a9ce1")
 	if err != nil {
@@ -42,7 +42,7 @@ func TestAesGcmDecrypt(t *testing.T) {
 		return
 	}
 
-	aesGcmCrypto, err := NewAesGcmCrypto(sharedKey, secretNonce)
+	aesGcmCrypto, err := NewAesGcmCrypto(sharedKey, secretNonce, KEY_TYPE_SCREENSHARE)
 	if err != nil {
 		t.Error(err)
 		return
@@ -84,7 +84,7 @@ func TestAesGcmEncrypt(t *testing.T) {
 		return
 	}
 
-	aesGcmCrypto, err := NewAesGcmCrypto(sharedKey, secretNonce)
+	aesGcmCrypto, err := NewAesGcmCrypto(sharedKey, secretNonce, KEY_TYPE_SCREENSHARE)
 	if err != nil {
 		t.Error(err)
 		return
@@ -114,7 +114,7 @@ func TestAesGcmEncrypt(t *testing.T) {
 		return
 	}
 
-	if bytes.Compare(ciphertext, expectedCiphertext) != 0 {
+	if !bytes.Equal(ciphertext, expectedCiphertext) {
 		t.Error("Plaintext did not match expected")
 	}
 }
