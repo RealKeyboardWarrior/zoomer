@@ -5,7 +5,8 @@ import (
 	"fmt"
 )
 
-/* H264 SVC layer / or frame information
+/*
+	H264 SVC layer / or frame information
 
 Zoom uses a mangled form of "Frame Marking RTP Header Extension"
 https://www.ietf.org/id/draft-ietf-avtext-framemarking-13.html
@@ -28,17 +29,21 @@ Eitherway, the exact meaning of these frame counters is currently unknown.
 
 Q: Why is there a need to include this fragmentation info in an extension header?
 A?: Maybe in an e2ee chat we can't distinguish keyframes from other frames so
-    they are marked in order that the SFU can figure which frames to send
+
+	they are marked in order that the SFU can figure which frames to send
 
 [2 192 0 114 0 113 0 1] =>
 [	2 		= version?
+
 	192 	= pkt info?
 	0 114 	= current frame/layer counter
 	0 113 	= previous frame/layer counter
 	0 1		= base reference frame counter
+
 ]
 
 Fragmented:
+
 	10  11 1000 184 -> start IDR frame
 	00  11 1000 56 -> continuation IDR bits (probably last bits)
 	01  11 1000 120 -> end IDR frame
@@ -57,7 +62,9 @@ Fragmented:
 	10	10 0000 160 -> start
 	00	10 0000 32 ->  continue single (probably predicted frames)
 	01	10 0000 96 ->   end
+
 Unfragmented:
+
 	11  00 0000 192 -> single (probably predicted frames)
 
 	pkt_info bytes [S, E, I, R, B, T, ??, ??]
@@ -68,8 +75,8 @@ Unfragmented:
 	B = Base Layer Sync = 1 if only depends on base layer (resolution changes SPS PPS, I frames)
 	T = Temporal Layer Sync = 1 if P frame
 
-
 baseFrame only changes if there have been spatial changes (screen resolution)
+
 	rtp id=[3] version=2 pktInfo=192 curFrame=2568 prevFrame=2567 baseFrame=229 width=1920 height=924
 	rtp id=[3] version=2 pktInfo=184 curFrame=2569 prevFrame=2569 baseFrame=2569 width=1150 height=914
 */
@@ -89,6 +96,10 @@ type RtpExtFrameInfo struct {
 func (ext *RtpExtFrameInfo) Unmarshal(data []byte) error {
 	if data == nil {
 		return ErrNoData
+	}
+
+	if len(data) < 8 {
+		return ErrInvalidLength
 	}
 
 	ext.Version = data[0]

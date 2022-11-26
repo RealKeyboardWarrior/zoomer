@@ -3,19 +3,28 @@ package protocol
 import (
 	"bytes"
 	"encoding/hex"
-	"log"
 	"testing"
 )
 
-func TestUnmarshalRtpExtensionFrameInfo(t *testing.T) {
-	payload, err := hex.DecodeString("02c007030702055f")
-	if err != nil {
-		t.Error(err)
-		return
-	}
+func FuzzUnmarshalRtpExtensionFrameInfo(f *testing.F) {
+	var (
+		invalidPayload  = []byte{0x00}
+		validPayload, _ = hex.DecodeString("02c007030702055f")
+	)
+	f.Add(invalidPayload)
+	f.Add(validPayload)
+	f.Fuzz(func(t *testing.T, encryptedPayload []byte) {
+		extFrameInfo := &RtpExtFrameInfo{}
+		extFrameInfo.Unmarshal(encryptedPayload)
+	})
+}
 
+func TestUnmarshalRtpExtensionFrameInfo(t *testing.T) {
+	var (
+		validPayload, _ = hex.DecodeString("02c007030702055f")
+	)
 	extFrameInfo := &RtpExtFrameInfo{}
-	err = extFrameInfo.Unmarshal(payload)
+	err := extFrameInfo.Unmarshal(validPayload)
 	if err != nil {
 		t.Error(err)
 		return
@@ -42,6 +51,10 @@ func TestUnmarshalRtpExtensionFrameInfo(t *testing.T) {
 }
 
 func TestMarshalRtpExtensionFrameInfo(t *testing.T) {
+	var (
+		validPayload, _ = hex.DecodeString("02c007030702055f")
+	)
+
 	extFrameInfo := &RtpExtFrameInfo{
 		Version:       uint8(2),
 		Start:         true,
@@ -61,14 +74,7 @@ func TestMarshalRtpExtensionFrameInfo(t *testing.T) {
 		return
 	}
 
-	log.Printf("payload = %v", hex.EncodeToString(payload))
-	expectedPayload, err := hex.DecodeString("02c007030702055f")
-	if err != nil {
-		t.Error(err)
-		return
-	}
-
-	if bytes.Compare(payload, expectedPayload) != 0 {
+	if !bytes.Equal(payload, validPayload) {
 		t.Error("payload did not match expected")
 	}
 }
