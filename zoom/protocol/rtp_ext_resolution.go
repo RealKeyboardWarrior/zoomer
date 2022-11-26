@@ -15,6 +15,10 @@ func (ext *RtpExtResolution) Unmarshal(data []byte) error {
 		return ErrNoData
 	}
 
+	if len(data) < 4 {
+		return ErrInvalidLength
+	}
+
 	ext.Width = binary.BigEndian.Uint16(data[0:2])
 	ext.Height = binary.BigEndian.Uint16(data[2:4])
 
