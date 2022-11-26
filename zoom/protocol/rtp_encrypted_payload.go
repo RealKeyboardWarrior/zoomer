@@ -2,6 +2,7 @@ package protocol
 
 import (
 	"encoding/binary"
+	"fmt"
 )
 
 var (
@@ -12,8 +13,10 @@ var (
 const (
 	LEN_PREFIX = 2 // Should match len(PREFIX)
 	LEN_SUFFIX = 1 // Should match len(SUFFIX)
-	// LEN_IV     = 12
-	LEN_TAG = 16
+	LEN_BODY   = 2
+	LEN_LEN_IV = 1
+	LEN_IV     = 12
+	LEN_TAG    = 16
 )
 
 type RtpEncryptedPayload struct {
@@ -33,24 +36,40 @@ func NewRtpEncryptedPayload(IV []byte, CiphertextWithTag []byte) *RtpEncryptedPa
 	}
 }
 
-func (encryptedPayload *RtpEncryptedPayload) Unmarshal(payload []byte) {
-	lenActualHeader := 15
+func (encryptedPayload *RtpEncryptedPayload) Unmarshal(payload []byte) error {
+	if payload == nil {
+		return ErrNoData
+	}
+
+	lenActualHeader := LEN_BODY + LEN_LEN_IV + LEN_IV
 	lenHeader := LEN_PREFIX /* 00 prefix */ + lenActualHeader /* actual header */ + LEN_SUFFIX /* 0 suffix */
 
-	// TODO: assert payload has size of header
+	if len(payload) < lenHeader {
+		return fmt.Errorf("payload does not have required header size")
+	}
 	header := payload[LEN_PREFIX:lenActualHeader]
 	lenIV := int(header[2])
-	// TODO: assert length of IV with 12
+
+	if lenIV != LEN_IV {
+		return fmt.Errorf("payload does not have IV size of %v received %v instead", LEN_IV, lenIV)
+	}
 	IV := header[3 : 3+lenIV]
 
 	lenBody := int(binary.BigEndian.Uint16(header[0:2]))
-	// TODO: assert payload has size of header + body
+	if len(payload) < lenHeader+lenBody {
+		return fmt.Errorf("payload does not have required body size")
+	}
+
 	ciphertext := payload[lenHeader : lenHeader+lenBody]
 	tag := payload[lenHeader+lenBody:]
+	if len(tag) != LEN_TAG {
+		return fmt.Errorf("payload does not have tag size of %v received %v instead", LEN_TAG, len(tag))
+	}
 
 	encryptedPayload.IV = IV
 	encryptedPayload.Ciphertext = ciphertext
 	encryptedPayload.Tag = tag
+	return nil
 }
 
 func (encryptedPayload *RtpEncryptedPayload) Marshal() []byte {
