@@ -24,14 +24,13 @@ func TestNaluPacketizer(t *testing.T) {
 	// Depacketize the payload
 	var decoded []byte
 	for _, pkt := range pkts {
-		log.Printf("%v", pkt[:32])
 		decoded, err = packetizer.Unmarshal(pkt)
 		if err != nil {
 			log.Fatal(err.Error())
 		}
 	}
 
-	if bytes.Compare(payload, decoded) != 0 {
-		log.Fatal("Decoding failed")
+	if !bytes.Equal(payload, decoded) {
+		t.Errorf("Decoded payload do not match expected payload")
 	}
 }
