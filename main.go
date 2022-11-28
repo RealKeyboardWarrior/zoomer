@@ -59,7 +59,7 @@ func main() {
 					session.SendChatMessage(zoom.EVERYONE_CHAT_ID, "Welcome to the meeting, "+string(person.Dn2)+"!")
 				}
 				if streams != nil {
-					session.ParticipantRoster.AddParticipant(person.ID, person.ZoomID)
+					streams.AddParticipant(person.ID, person.ZoomID)
 				}
 			}
 			for _, person := range m.Update {
@@ -103,7 +103,7 @@ func main() {
 			// streams.StartBroadcast(m.SSRC)
 			return nil
 		case *zoom.SharingStatusIndication:
-			session.ParticipantRoster.AddSsrcForParticipant(m.ActiveNodeID, m.Ssrc)
+			streams.AddSsrcForParticipant(m.ActiveNodeID, m.Ssrc)
 			// Signal subscribition to anyone else
 			// session.SharingSubscribeRequest(m.ActiveNodeID, 1)
 			return nil

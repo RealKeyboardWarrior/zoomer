@@ -33,8 +33,6 @@ type ZoomSession struct {
 	// RWG
 	RwgInfo   *RwgInfo
 	RwgCookie string
-
-	ParticipantRoster *ZoomParticipantRoster
 }
 
 func NewZoomSession(meetingNumber string, meetingPassword string, username string, hardwareID string, proxyURL string, zoomJwtApiKey string, zoomJwtApiSecret string) (*ZoomSession, error) {
@@ -46,13 +44,12 @@ func NewZoomSession(meetingNumber string, meetingPassword string, username strin
 		return nil, err
 	}
 	session := ZoomSession{
-		MeetingNumber:     strings.Replace(meetingNumber, " ", "", -1), // remove all
-		MeetingPassword:   meetingPassword,
-		Username:          username,
-		HardwareID:        uuidParsed,
-		ZoomJwtApiKey:     zoomJwtApiKey,
-		ZoomJwtApiSecret:  zoomJwtApiSecret,
-		ParticipantRoster: NewParticipantRoster(),
+		MeetingNumber:    strings.Replace(meetingNumber, " ", "", -1), // remove all
+		MeetingPassword:  meetingPassword,
+		Username:         username,
+		HardwareID:       uuidParsed,
+		ZoomJwtApiKey:    zoomJwtApiKey,
+		ZoomJwtApiSecret: zoomJwtApiSecret,
 	}
 
 	session.httpClient = &http.Client{

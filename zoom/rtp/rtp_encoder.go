@@ -1,4 +1,4 @@
-package zoom
+package rtp
 
 import (
 	"encoding/binary"
@@ -122,7 +122,10 @@ func encryptPayloadWithRoster(roster *ZoomParticipantRoster, ssrc int, messageCo
 		return nil, ErrParticipantExists
 	}
 
-	sharedMeetingKey := roster.GetSharedMeetingKey()
+	sharedMeetingKey, err := roster.GetSharedMeetingKey()
+	if err != nil {
+		return nil, ErrParticipantExists
+	}
 
 	// Build 12 byte IV
 	IV := make([]byte, 12)

@@ -1,13 +1,14 @@
-package zoom
+package rtp
 
 import (
 	"errors"
 )
 
 var (
-	ErrParticipantExists  = errors.New("participant already exists")
-	ErrParticipantMissing = errors.New("participant is missing")
-	ErrSsrcMissing        = errors.New("ssrc is missing")
+	ErrParticipantExists       = errors.New("participant already exists")
+	ErrParticipantMissing      = errors.New("participant is missing")
+	ErrSsrcMissing             = errors.New("ssrc is missing")
+	ErrSharedMeetingKeyMissing = errors.New("sharedMeetingKey is missing")
 )
 
 type Participant struct {
@@ -26,12 +27,7 @@ func NewParticipantRoster() *ZoomParticipantRoster {
 		participants: make(map[int]*Participant),
 	}
 }
-func (roster *ZoomParticipantRoster) AddParticipant(userId int, zoomId string) error {
-	secretNonce, err := ZoomEscapedBase64Decode(zoomId)
-	if err != nil {
-		return err
-	}
-
+func (roster *ZoomParticipantRoster) AddParticipant(userId int, secretNonce []byte) error {
 	participant := roster.participants[userId]
 	if participant != nil {
 		return ErrParticipantExists
@@ -91,6 +87,9 @@ func (roster *ZoomParticipantRoster) SetSharedMeetingKey(sharedMeetingKey []byte
 	roster.sharedMeetingKey = sharedMeetingKey
 }
 
-func (roster *ZoomParticipantRoster) GetSharedMeetingKey() []byte {
-	return roster.sharedMeetingKey
+func (roster *ZoomParticipantRoster) GetSharedMeetingKey() ([]byte, error) {
+	if len(roster.sharedMeetingKey) == 0 {
+		return nil, ErrSharedMeetingKeyMissing
+	}
+	return roster.sharedMeetingKey, nil
 }

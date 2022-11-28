@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/RealKeyboardWarrior/zoomer/zoom/rtp"
 	"github.com/gorilla/websocket"
 )
 
@@ -27,7 +28,7 @@ type ZoomStreams struct {
 	recv *websocket.Conn
 	send *websocket.Conn
 
-	decoder *ZoomRtpDecoder
+	decoder *rtp.ZoomRtpDecoder
 }
 
 func createWebSocketUrl(session *ZoomSession, subType string, mode string) string {
@@ -95,7 +96,7 @@ func CreateZoomStreams(session *ZoomSession, isScreenShare bool) (*ZoomStreams, 
 	final := &ZoomStreams{
 		recv:    recv,
 		send:    send,
-		decoder: NewZoomRtpDecoder(session.ParticipantRoster, isScreenShare),
+		decoder: rtp.NewZoomRtpDecoder(rtp.STREAM_TYPE_VIDEO),
 	}
 
 	go final.StartReceiveChannel()
@@ -187,7 +188,7 @@ func (streams *ZoomStreams) StartReceiveChannel() {
 				return
 			}
 		} else if p[0] == RTCP {
-			_, err := RtcpProcess(p[4:])
+			_, err := rtp.RtcpProcess(p[4:])
 			if err != nil {
 				log.Fatal(err)
 				return
@@ -207,6 +208,20 @@ func (streams *ZoomStreams) SetSharedMeetingKey(encryptionKey string) error {
 		return err
 	}
 
-	streams.decoder.SetSharedMeetingKey(sharedMeetingKey)
+	streams.decoder.ParticipantRoster.SetSharedMeetingKey(sharedMeetingKey)
 	return nil
+}
+
+func (streams *ZoomStreams) AddParticipant(userId int, zoomId string) error {
+	secretNonce, err := ZoomEscapedBase64Decode(zoomId)
+	if err != nil {
+		return err
+	}
+
+	streams.decoder.ParticipantRoster.AddParticipant(userId, secretNonce)
+	return nil
+}
+
+func (streams *ZoomStreams) AddSsrcForParticipant(userId int, ssrc int) error {
+	return streams.AddSsrcForParticipant(userId, ssrc)
 }
