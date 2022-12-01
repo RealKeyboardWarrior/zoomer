@@ -1,18 +1,23 @@
 package rtp
 
 import (
+	"fmt"
 	"log"
 
 	"github.com/pion/rtcp"
 )
 
 func RtcpProcess(rawPkt []byte) ([]rtcp.Packet, error) {
-	p, err := rtcp.Unmarshal(rawPkt)
+	rtcpPackets, err := rtcp.Unmarshal(rawPkt)
 	if err != nil {
 		log.Fatal(err)
 		return nil, err
 	}
 
-	// log.Printf("%v", p[0])
-	return p, nil
+	for _, rtcpPacket := range rtcpPackets {
+		if stringer, canString := rtcpPacket.(fmt.Stringer); canString {
+			fmt.Printf("rtcp : %v", stringer.String())
+		}
+	}
+	return rtcpPackets, nil
 }
