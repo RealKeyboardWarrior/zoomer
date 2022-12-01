@@ -5,32 +5,84 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/RealKeyboardWarrior/zoomer/zoom/protocol"
+	"github.com/RealKeyboardWarrior/zoomer/zoom/codecs/h264"
+	"github.com/RealKeyboardWarrior/zoomer/zoom/crypto"
 	"github.com/pion/rtp"
+	"github.com/pion/webrtc/v3/pkg/media"
+	"github.com/pion/webrtc/v3/pkg/media/samplebuilder"
 )
 
 type ZoomRtpDecoder struct {
 	streamType        StreamType
-	naluPacketizers   map[ /*ssrc*/ uint32]*protocol.NaluPacketizer
+	sampleBuilders    map[ /*ssrc*/ uint32]*samplebuilder.SampleBuilder
 	ParticipantRoster *ZoomParticipantRoster
 }
 
 func NewZoomRtpDecoder(streamType StreamType) *ZoomRtpDecoder {
 	return &ZoomRtpDecoder{
-		naluPacketizers:   make(map[uint32]*protocol.NaluPacketizer),
+		sampleBuilders:    make(map[uint32]*samplebuilder.SampleBuilder),
 		ParticipantRoster: NewParticipantRoster(),
 		streamType:        streamType,
 	}
 }
 
-func (parser *ZoomRtpDecoder) getNaluPacketizerFor(ssrc uint32) *protocol.NaluPacketizer {
-	if parser.naluPacketizers[ssrc] == nil {
-		parser.naluPacketizers[ssrc] = protocol.NewNaluPacketizer()
+func (parser *ZoomRtpDecoder) getDecryptorFor(ssrc uint32) (*crypto.AesGcmCrypto, error) {
+	// 1. Fetch the secretNonce for the ssrc
+	secretNonce, err := parser.ParticipantRoster.GetSecretNonceForSSRC((int)(ssrc))
+	if err != nil {
+		return nil, fmt.Errorf("cannot decode packet for ssrc=%v", ssrc)
 	}
-	return parser.naluPacketizers[ssrc]
+
+	// 2. Fetch the shared meeting key
+	sharedMeetingKey, err := parser.ParticipantRoster.GetSharedMeetingKey()
+	if err != nil {
+		return nil, err
+	}
+
+	// 3. Build decryptor per key type
+	var keyType crypto.AesKeyType
+	switch parser.streamType {
+	case STREAM_TYPE_SCREENSHARE:
+		keyType = crypto.KEY_TYPE_SCREENSHARE
+	case STREAM_TYPE_VIDEO:
+		keyType = crypto.KEY_TYPE_VIDEO
+	case STREAM_TYPE_AUDIO:
+		keyType = crypto.KEY_TYPE_AUDIO
+	}
+
+	log.Printf("key=%v sn=%v", hex.EncodeToString(sharedMeetingKey), hex.EncodeToString(secretNonce))
+	decryptor, err := crypto.NewAesGcmCrypto(sharedMeetingKey, secretNonce, keyType)
+	if err != nil {
+		return nil, err
+	}
+	return decryptor, nil
 }
 
-func (parser *ZoomRtpDecoder) Decode(rawPkt []byte) ([]byte, error) {
+func (parser *ZoomRtpDecoder) getSampleBuilderFor(ssrc uint32) (*samplebuilder.SampleBuilder, error) {
+	if parser.sampleBuilders[ssrc] == nil {
+		// TODO: think about reasonable max late
+		maxLate := uint16(400)
+		decryptor, err := parser.getDecryptorFor(ssrc)
+		if err != nil {
+			return nil, err
+		}
+		// TODO: add audio support
+		var depacketizer rtp.Depacketizer
+		switch parser.streamType {
+		case STREAM_TYPE_SCREENSHARE, STREAM_TYPE_VIDEO:
+			depacketizer = h264.NewVideoDepacketizer(decryptor)
+		case STREAM_TYPE_AUDIO:
+			panic("unimplemented")
+		}
+
+		// TODO: fix sample rate
+		sampleRate := uint32(1)
+		parser.sampleBuilders[ssrc] = samplebuilder.New(maxLate, depacketizer, sampleRate)
+	}
+	return parser.sampleBuilders[ssrc], nil
+}
+
+func (parser *ZoomRtpDecoder) Decode(rawPkt []byte) (*media.Sample, error) {
 	// 1. Decode the RTP packet
 	rtpPacket := &rtp.Packet{}
 	err := rtpPacket.Unmarshal(rawPkt)
@@ -42,41 +94,18 @@ func (parser *ZoomRtpDecoder) Decode(rawPkt []byte) ([]byte, error) {
 	log.Printf("rtp header [M = %v] [PT type=%v] [SN seq=%v] [TS timestamp=%v] [P padding=%v size=%v] [ssrc=%v csrc=%v]", rtpPacket.Marker, rtpPacket.PayloadType, rtpPacket.SequenceNumber, rtpPacket.Timestamp, rtpPacket.Padding, rtpPacket.PaddingSize, rtpPacket.SSRC, rtpPacket.CSRC)
 	log.Printf("rtp payload [PYLD size=%v]", len(rtpPacket.Payload))
 
-	// 2. Fetch the secretNonce for the ssrc
-	secretNonce, err := parser.ParticipantRoster.GetSecretNonceForSSRC((int)(rtpPacket.SSRC))
-	if err != nil {
-		return nil, fmt.Errorf("cannot decode packet for ssrc=%v", rtpPacket.SSRC)
-	}
-
-	// 3. Fetch the shared meeting key
-	sharedMeetingKey, err := parser.ParticipantRoster.GetSharedMeetingKey()
+	// 2.
+	sampleBuilder, err := parser.getSampleBuilderFor(rtpPacket.SSRC)
 	if err != nil {
 		return nil, err
 	}
 
-	// 4. Build decryptor per key type
-	var keyType protocol.AesKeyType
+	// 3. Call the decoder
 	switch parser.streamType {
 	case STREAM_TYPE_SCREENSHARE:
-		keyType = protocol.KEY_TYPE_SCREENSHARE
+		return DecodeScreenShare(rtpPacket, sampleBuilder)
 	case STREAM_TYPE_VIDEO:
-		keyType = protocol.KEY_TYPE_VIDEO
-	case STREAM_TYPE_AUDIO:
-		keyType = protocol.KEY_TYPE_AUDIO
-	}
-
-	log.Printf("key=%v sn=%v", hex.EncodeToString(sharedMeetingKey), hex.EncodeToString(secretNonce))
-	decryptor, err := protocol.NewAesGcmCrypto(sharedMeetingKey, secretNonce, keyType)
-	if err != nil {
-		return nil, err
-	}
-
-	// 5. Call the decoder
-	switch parser.streamType {
-	case STREAM_TYPE_SCREENSHARE:
-		return DecodeScreenShare(rtpPacket, parser.getNaluPacketizerFor(rtpPacket.SSRC), decryptor)
-	case STREAM_TYPE_VIDEO:
-		return DecodeVideo(rtpPacket, parser.getNaluPacketizerFor(rtpPacket.SSRC), decryptor)
+		return DecodeVideo(rtpPacket, sampleBuilder)
 	case STREAM_TYPE_AUDIO:
 		panic("unimplemented")
 	}

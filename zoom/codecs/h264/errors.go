@@ -1,4 +1,4 @@
-package protocol
+package h264
 
 import "errors"
 

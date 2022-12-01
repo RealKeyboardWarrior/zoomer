@@ -1,4 +1,4 @@
-package protocol
+package ext
 
 import (
 	"encoding/binary"

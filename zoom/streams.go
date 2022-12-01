@@ -177,16 +177,19 @@ func (streams *ZoomStreams) StartReceiveChannel() {
 			if p[0] == RTP_VIDEO_PKT {
 				start = 28
 			}
-			frame, err := decoder.Decode(p[start:])
+			sample, err := decoder.Decode(p[start:])
 			if err != nil {
 				log.Fatal(err)
 				return
 			}
-			_, err = recorder.Write(frame)
-			if err != nil {
-				log.Fatal(err)
-				return
+			if sample != nil {
+				_, err = recorder.Write(sample.Data)
+				if err != nil {
+					log.Fatal(err)
+					return
+				}
 			}
+
 		} else if p[0] == RTCP {
 			_, err := rtp.RtcpProcess(p[4:])
 			if err != nil {

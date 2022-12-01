@@ -1,8 +1,9 @@
-package protocol
+package h264
 
 import (
 	"fmt"
 	"log"
+	"sync"
 )
 
 /*
@@ -40,33 +41,38 @@ const (
 	MASK_FU_HEADER_TYPE_BITS    = 0x1F
 )
 
-func IsSingle(b byte) bool {
+func isSingle(b byte) bool {
 	return b == BYTE_SINGLE
 }
-func IsFragmented(b byte) bool {
+func isFragmented(b byte) bool {
 	return b&MASK_NALU_HEADER_TYPE == FU_A
 }
-func IsFragmentedStart(b byte) bool {
+func isFragmentedStart(b byte) bool {
 	return b&MASK_FU_HEADER_START_BIT == MASK_FU_HEADER_START_BIT
 }
-func IsFragmentedEnd(b byte) bool {
+func isFragmentedEnd(b byte) bool {
 	return b&MASK_FU_HEADER_END_BIT == MASK_FU_HEADER_END_BIT
 }
-func IsFragmentedContinuation(b byte) bool {
-	return !(IsFragmentedStart(b) || !IsFragmentedEnd(b))
+func isFragmentedContinuation(b byte) bool {
+	return !(isFragmentedStart(b) || !isFragmentedEnd(b))
 }
 
 type NaluPacketizer struct {
+	mu     sync.Mutex
 	buffer []byte
 }
 
 func NewNaluPacketizer() *NaluPacketizer {
 	return &NaluPacketizer{
+		mu:     sync.Mutex{},
 		buffer: make([]byte, 0),
 	}
 }
 
 func (parser *NaluPacketizer) Unmarshal(data []byte) ([]byte, error) {
+	parser.mu.Lock()
+	defer parser.mu.Unlock()
+
 	var complete []byte
 
 	// There should at least be one byte to define FU-A or Single
@@ -74,7 +80,7 @@ func (parser *NaluPacketizer) Unmarshal(data []byte) ([]byte, error) {
 		return nil, ErrInvalidLength
 	}
 
-	if IsFragmented(data[0]) {
+	if isFragmented(data[0]) {
 		// Fragmented should have at least 2 bytes of header and 1 byte of content
 		if len(data) < 3 {
 			return nil, ErrInvalidLength
@@ -82,16 +88,16 @@ func (parser *NaluPacketizer) Unmarshal(data []byte) ([]byte, error) {
 
 		// Ensure no shenanigans happened in the order of the incoming packets
 		if len(parser.buffer) == 0 {
-			if !IsFragmentedStart(data[1]) {
+			if !isFragmentedStart(data[1]) {
 				return nil, ErrNonEmptyBufferStartBit
-			} else if IsFragmentedContinuation(data[1]) {
+			} else if isFragmentedContinuation(data[1]) {
 				return nil, ErrEmptyBufferContinuation
 			}
 		}
 
 		parser.buffer = append(parser.buffer, data[2:]...)
 
-		if IsFragmentedEnd(data[1]) {
+		if isFragmentedEnd(data[1]) {
 			// FU-A end fragments probably have the tag
 			complete = parser.buffer
 			defer func() {
@@ -99,9 +105,9 @@ func (parser *NaluPacketizer) Unmarshal(data []byte) ([]byte, error) {
 			}()
 		} else {
 			// Nothing to do yet, start or continuation
-			return nil, nil
+			return []byte{}, nil
 		}
-	} else if IsSingle(data[0]) {
+	} else if isSingle(data[0]) {
 		// Single should have at least 1 byte of content
 		if len(data) < 2 {
 			return nil, ErrInvalidLength

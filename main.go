@@ -93,10 +93,12 @@ func main() {
 			}
 
 			// A2. Announce our own stream sharing
-			err = session.SetShareStatus(true, false)
-			if err != nil {
-				return err
-			}
+			/*
+				err = session.SetShareStatus(true, false)
+				if err != nil {
+					return err
+				}
+			*/
 			return nil
 		case *zoom.SharingAssignedSendingSsrcResponse:
 			// A3. Start broadcasting

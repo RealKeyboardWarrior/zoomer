@@ -5,14 +5,15 @@ import (
 	"encoding/hex"
 	"log"
 
-	"github.com/RealKeyboardWarrior/zoomer/zoom/protocol"
+	"github.com/RealKeyboardWarrior/zoomer/zoom/crypto"
+	"github.com/RealKeyboardWarrior/zoomer/zoom/rtp/ext"
 	"github.com/pion/rtp"
 )
 
 type ZoomRtpEncoder struct {
 	id             int
 	ssrc           int
-	resolution     *protocol.RtpExtResolution
+	resolution     *ext.RtpExtResolution
 	messageCounter int
 	timestamp      int
 
@@ -28,7 +29,7 @@ func NewZoomRtpEncoder(roster *ZoomParticipantRoster, ssrc int, id int, width, h
 	return &ZoomRtpEncoder{
 		id:   id,
 		ssrc: ssrc,
-		resolution: &protocol.RtpExtResolution{
+		resolution: &ext.RtpExtResolution{
 			Width:  uint16(width),
 			Height: uint16(height),
 		},
@@ -89,7 +90,7 @@ func (parser *ZoomRtpEncoder) Encode(payload []byte) ([]byte, error) {
 	p.Header.SetExtension(RTP_EXTENSION_ID_RESOLUTION, rtpResolution)
 
 	// TODO: extension frame info should probably be more advanced
-	rtpFrameInfo := &protocol.RtpExtFrameInfo{
+	rtpFrameInfo := &ext.RtpExtFrameInfo{
 		Version:       2,
 		Start:         true,  // TODO: NALU packetizer
 		End:           true,  // TODO: NALU packetize
@@ -133,7 +134,7 @@ func encryptPayloadWithRoster(roster *ZoomParticipantRoster, ssrc int, messageCo
 	IV = IV[:12]
 
 	// TODO: add keyType, hardcoded to screenshare!
-	encryptor, err := protocol.NewAesGcmCrypto(sharedMeetingKey, secretNonce, 0x02)
+	encryptor, err := crypto.NewAesGcmCrypto(sharedMeetingKey, secretNonce, 0x02)
 	if err != nil {
 		return nil, err
 	}
@@ -147,7 +148,7 @@ func encryptPayloadWithRoster(roster *ZoomParticipantRoster, ssrc int, messageCo
 		log.Printf("encrypted body key=%v sn=%v iv=%v ciphertextWithTag=%v", hex.EncodeToString(sharedMeetingKey), hex.EncodeToString(secretNonce), hex.EncodeToString(IV), hex.EncodeToString(ciphertextWithTag))
 	}
 
-	encodedPayload := protocol.NewRtpEncryptedPayload(IV, ciphertextWithTag)
+	encodedPayload := crypto.NewRtpEncryptedPayload(IV, ciphertextWithTag)
 	encodedPayloadInBytes := encodedPayload.Marshal()
 	return encodedPayloadInBytes, nil
 }
