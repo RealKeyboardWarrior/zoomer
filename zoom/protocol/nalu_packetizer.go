@@ -46,8 +46,14 @@ func IsSingle(b byte) bool {
 func IsFragmented(b byte) bool {
 	return b&MASK_NALU_HEADER_TYPE == FU_A
 }
+func IsFragmentedStart(b byte) bool {
+	return b&MASK_FU_HEADER_START_BIT == MASK_FU_HEADER_START_BIT
+}
 func IsFragmentedEnd(b byte) bool {
 	return b&MASK_FU_HEADER_END_BIT == MASK_FU_HEADER_END_BIT
+}
+func IsFragmentedContinuation(b byte) bool {
+	return !(IsFragmentedStart(b) || !IsFragmentedEnd(b))
 }
 
 type NaluPacketizer struct {
@@ -72,6 +78,15 @@ func (parser *NaluPacketizer) Unmarshal(data []byte) ([]byte, error) {
 		// Fragmented should have at least 2 bytes of header and 1 byte of content
 		if len(data) < 3 {
 			return nil, ErrInvalidLength
+		}
+
+		// Ensure no shenanigans happened in the order of the incoming packets
+		if len(parser.buffer) == 0 {
+			if !IsFragmentedStart(data[1]) {
+				return nil, ErrNonEmptyBufferStartBit
+			} else if IsFragmentedContinuation(data[1]) {
+				return nil, ErrEmptyBufferContinuation
+			}
 		}
 
 		parser.buffer = append(parser.buffer, data[2:]...)
