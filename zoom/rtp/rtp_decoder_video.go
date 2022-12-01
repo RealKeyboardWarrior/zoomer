@@ -47,7 +47,11 @@ func DecodeVideo(rtpPacket *rtp.Packet, depacketizer *protocol.NaluPacketizer, d
 
 	// 4. Decode the inner encrypted payload
 	decodedPayload := &protocol.RtpEncryptedPayload{}
-	decodedPayload.Unmarshal(complete)
+	err = decodedPayload.Unmarshal(complete)
+	if err != nil {
+		log.Fatal(err)
+		return nil, err
+	}
 
 	// 5. Decrypt the ciphertext
 	log.Printf("body iv=%v body=%v tag=%v", hex.EncodeToString(decodedPayload.IV), hex.EncodeToString(decodedPayload.Ciphertext), hex.EncodeToString(decodedPayload.Tag))
