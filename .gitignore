@@ -1,4 +1,4 @@
-main.exe
-zoomer.exe
 .env
-logs/
+**/*.log
+**/*.h264
+**/*.exe

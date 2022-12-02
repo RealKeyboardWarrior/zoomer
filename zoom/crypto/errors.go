@@ -3,6 +3,5 @@ package crypto
 import "errors"
 
 var (
-	ErrNoData        = errors.New("no data was passed")
-	ErrInvalidLength = errors.New("invalid length")
+	ErrNoData = errors.New("no data was passed")
 )

@@ -66,6 +66,7 @@ func (parser *ZoomRtpDecoder) getSampleBuilderFor(ssrc uint32) (*samplebuilder.S
 		if err != nil {
 			return nil, err
 		}
+
 		// TODO: add audio support
 		var depacketizer rtp.Depacketizer
 		switch parser.streamType {
@@ -92,7 +93,7 @@ func (parser *ZoomRtpDecoder) Decode(rawPkt []byte) (*media.Sample, error) {
 	}
 
 	log.Printf("rtp header [M = %v] [PT type=%v] [SN seq=%v] [TS timestamp=%v] [P padding=%v size=%v] [ssrc=%v csrc=%v]", rtpPacket.Marker, rtpPacket.PayloadType, rtpPacket.SequenceNumber, rtpPacket.Timestamp, rtpPacket.Padding, rtpPacket.PaddingSize, rtpPacket.SSRC, rtpPacket.CSRC)
-	log.Printf("rtp payload [PYLD size=%v]", len(rtpPacket.Payload))
+	log.Printf("rtp payload [PYLD size=%v data=%v]", len(rtpPacket.Payload), hex.EncodeToString(rtpPacket.Payload))
 
 	// 2.
 	sampleBuilder, err := parser.getSampleBuilderFor(rtpPacket.SSRC)

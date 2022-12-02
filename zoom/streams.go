@@ -45,7 +45,7 @@ func createWebSocketUrl(session *ZoomSession, subType string, mode string) strin
 	return url.String()
 }
 
-func CreateZoomStreams(session *ZoomSession, isScreenShare bool) (*ZoomStreams, error) {
+func CreateZoomVideoStreams(session *ZoomSession) (*ZoomStreams, error) {
 	if session.JoinInfo == nil {
 		return nil, errors.New("Zoom session does not have valid JoinInfo")
 	}
@@ -58,21 +58,8 @@ func CreateZoomStreams(session *ZoomSession, isScreenShare bool) (*ZoomStreams, 
 		return nil, errors.New("Zoom session does not have valid ZoomID")
 	}
 
-	/*
-		secretNonce, err := ZoomEscapedBase64Decode(session.JoinInfo.ZoomID)
-		if err != nil {
-			return nil, err
-		}
-	*/
-
-	var downstream string
-	if isScreenShare {
-		// Screen sharing
-		downstream = createWebSocketUrl(session, "s", "1")
-	} else {
-		// Normal video camera sharing
-		downstream = createWebSocketUrl(session, "v", "5")
-	}
+	// Normal video camera sharing
+	downstream := createWebSocketUrl(session, "v", "5")
 	recv, err := createWebsocket("recv", downstream)
 	if err != nil {
 		return nil, err
@@ -80,14 +67,7 @@ func CreateZoomStreams(session *ZoomSession, isScreenShare bool) (*ZoomStreams, 
 
 	// Upstream for both screenshare and audio is 2.
 	// TODO: should be for video as well - verify
-	var upstream string
-	if isScreenShare {
-		// Screen sharing
-		upstream = createWebSocketUrl(session, "s", "2")
-	} else {
-		// Normal video camera sharing
-		upstream = createWebSocketUrl(session, "v", "2")
-	}
+	upstream := createWebSocketUrl(session, "v", "2")
 	send, err := createWebsocket("send", upstream)
 	if err != nil {
 		return nil, err
@@ -104,7 +84,41 @@ func CreateZoomStreams(session *ZoomSession, isScreenShare bool) (*ZoomStreams, 
 	return final, nil
 }
 
-// wss://zoomamn89rwg.am.zoom.us/wc/media/87144340981?type=s&cid=784C146F-A782-A49B-4487-0148303B7D86&mode=1
+func CreateZoomScreenShareStreams(session *ZoomSession) (*ZoomStreams, error) {
+	if session.JoinInfo == nil {
+		return nil, errors.New("Zoom session does not have valid JoinInfo")
+	}
+
+	if session.RwgInfo == nil {
+		return nil, errors.New("Zoom session does not have valid RwgInfo")
+	}
+
+	if session.JoinInfo.ZoomID == "" {
+		return nil, errors.New("Zoom session does not have valid ZoomID")
+	}
+
+	downstream := createWebSocketUrl(session, "s", "1")
+	recv, err := createWebsocket("recv", downstream)
+	if err != nil {
+		return nil, err
+	}
+
+	upstream := createWebSocketUrl(session, "s", "2")
+	send, err := createWebsocket("send", upstream)
+	if err != nil {
+		return nil, err
+	}
+
+	final := &ZoomStreams{
+		recv:    recv,
+		send:    send,
+		decoder: rtp.NewZoomRtpDecoder(rtp.STREAM_TYPE_SCREENSHARE),
+	}
+
+	go final.StartReceiveChannel()
+
+	return final, nil
+}
 
 func Recorder() (io.WriteCloser, error) {
 	f, err := os.Create(time.Now().Format("2006-01-02-15-04-05") + ".h264")
@@ -199,7 +213,7 @@ func (streams *ZoomStreams) StartReceiveChannel() {
 		} else if p[0] == AES_GCM_IV_VALUE {
 			// log.Printf("AES_GCM_IV_VALUE IV=%v", p[4:])
 		} else {
-			log.Printf("name=receive type=%v len=%v payload=%v", messageType, len(p), p)
+			log.Printf("name=receive type=%v len=%v payload=%v", messageType, len(p), hex.EncodeToString(p))
 		}
 	}
 

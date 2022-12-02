@@ -79,7 +79,7 @@ func main() {
 			return nil
 		case *zoom.JoinConferenceResponse:
 			// TODO(hackish): move this elsewhere
-			streams, err = zoom.CreateZoomStreams(session, false)
+			streams, err = zoom.CreateZoomVideoStreams(session)
 			if err != nil {
 				return err
 			}
