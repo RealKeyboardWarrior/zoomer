@@ -28,10 +28,13 @@ func TestUnmarshalRtpEncryptedPayload(t *testing.T) {
 	)
 
 	zoomEncryptedPayload := &RtpEncryptedPayload{}
-	zoomEncryptedPayload.Unmarshal(validPayload)
+	err := zoomEncryptedPayload.Unmarshal(validPayload)
+	if err != nil {
+		t.Error(err)
+	}
 
 	if !bytes.Equal(zoomEncryptedPayload.IV, expectedIv) {
-		t.Error("IV did not match expected")
+		t.Errorf("IV did not match expected")
 	}
 
 	if !bytes.Equal(zoomEncryptedPayload.Ciphertext, expectedCiphertext) {
@@ -52,7 +55,7 @@ func TestMarshalRtpEncryptedPayload(t *testing.T) {
 	)
 
 	ciphertextWithTag := append(expectedCiphertext, expectedTag...)
-	zoomEncryptedPayload := NewRtpEncryptedPayload(expectedIv, ciphertextWithTag)
+	zoomEncryptedPayload := NewRtpEncryptedPayload(0, expectedIv, ciphertextWithTag)
 	encryptedPayload := zoomEncryptedPayload.Marshal()
 
 	if !bytes.Equal(encryptedPayload, validPayload) {

@@ -85,8 +85,9 @@ func (session *ZoomSession) RequestBreakoutRoomJoinToken(targetBID string) error
 // equivalent to zoom "join audio" - basically just allows us to have the voice icon next to our name
 func (session *ZoomSession) JoinAudioVoipChannel(status bool) error {
 	sendBody := AudioVoipJoinChannelRequest{
-		ID:  session.JoinInfo.UserID,
-		BOn: status,
+		// TODO: seems like this is not being submitted anymore
+		// ID:  &session.JoinInfo.UserID,
+		BOn: &status,
 	}
 	err := session.SendMessage(session.websocketConnection, WS_AUDIO_VOIP_JOIN_CHANNEL_REQ, sendBody)
 	if err != nil {
@@ -110,6 +111,18 @@ func (session *ZoomSession) SignalAudioStatus(oldAudioConnectionStatus, audioCon
 
 // {"evt":8203,"body":{"oldAudioConnectionStatus":0,"audioConnectionStatus":1},"seq":3}
 // {"evt":8203,"body":{"oldAudioConnectionStatus":0,"audioConnectionStatus":3,"seq":3}
+
+func (session *ZoomSession) MuteUser(userId int, status bool) error {
+	sendBody := VideoMuteRequest{
+		ID:  userId,
+		BOn: status,
+	}
+	err := session.SendMessage(session.websocketConnection, WS_VIDEO_MUTE_VIDEO_REQ, sendBody)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 // NOTE: this does not actually allow you to screenshare, that has yet to implemented.  it just changes the indicator next to your name and will show that you have solid black video
 // true for mute, false for unmute

@@ -1,4 +1,4 @@
-package rtp
+package ext
 
 import (
 	"encoding/hex"
@@ -6,11 +6,9 @@ import (
 	"log"
 
 	"github.com/pion/rtp"
-	"github.com/pion/webrtc/v3/pkg/media"
-	"github.com/pion/webrtc/v3/pkg/media/samplebuilder"
 )
 
-func DecodeVideo(rtpPacket *rtp.Packet, sampleBuilder *samplebuilder.SampleBuilder) (*media.Sample, error) {
+func DecodeVideoMetadata(rtpPacket *rtp.Packet) (*RtpMetadata, error) {
 	// 1. Decode RTP extensions
 	extensions := rtpPacket.GetExtensionIDs()
 	if len(extensions) != 0 {
@@ -26,9 +24,5 @@ func DecodeVideo(rtpPacket *rtp.Packet, sampleBuilder *samplebuilder.SampleBuild
 		return nil, fmt.Errorf("payload type has unexpected value %v", rtpPacket.PayloadType)
 	}
 
-	// 2. Push the RTP packet to the sampleBuilder
-	sampleBuilder.Push(rtpPacket)
-
-	// 3. Pop a sample, may return nil
-	return sampleBuilder.Pop(), nil
+	return &RtpMetadata{}, nil
 }

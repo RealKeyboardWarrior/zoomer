@@ -73,13 +73,13 @@ func (parser *ZoomRtpEncoder) Encode(payload []byte) ([]byte, error) {
 	}
 
 	// TODO: increment UUID whenever reconnecting, prob big endian but single byte?
-	p.Header.SetExtension(RTP_EXTENSION_ID_UUID, []byte{0x01})
+	p.Header.SetExtension(ext.RTP_EXTENSION_ID_UUID, []byte{0x01})
 	if parser.resolution != nil {
 		resolution, err := parser.resolution.Marshal()
 		if err != nil {
 			return nil, err
 		}
-		p.Header.SetExtension(RTP_EXTENSION_ID_RESOLUTION, resolution)
+		p.Header.SetExtension(ext.RTP_EXTENSION_ID_RESOLUTION, resolution)
 	}
 
 	// Set extension screen size
@@ -87,7 +87,7 @@ func (parser *ZoomRtpEncoder) Encode(payload []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	p.Header.SetExtension(RTP_EXTENSION_ID_RESOLUTION, rtpResolution)
+	p.Header.SetExtension(ext.RTP_EXTENSION_ID_RESOLUTION, rtpResolution)
 
 	// TODO: extension frame info should probably be more advanced
 	rtpFrameInfo := &ext.RtpExtFrameInfo{
@@ -106,7 +106,7 @@ func (parser *ZoomRtpEncoder) Encode(payload []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	p.Header.SetExtension(RTP_EXTENSION_ID_FRAME_INFO, rtpFrameInfoBytes)
+	p.Header.SetExtension(ext.RTP_EXTENSION_ID_FRAME_INFO, rtpFrameInfoBytes)
 
 	rawPkt, err := p.Marshal()
 	if err != nil {
@@ -148,7 +148,7 @@ func encryptPayloadWithRoster(roster *ZoomParticipantRoster, ssrc int, messageCo
 		log.Printf("encrypted body key=%v sn=%v iv=%v ciphertextWithTag=%v", hex.EncodeToString(sharedMeetingKey), hex.EncodeToString(secretNonce), hex.EncodeToString(IV), hex.EncodeToString(ciphertextWithTag))
 	}
 
-	encodedPayload := crypto.NewRtpEncryptedPayload(IV, ciphertextWithTag)
+	encodedPayload := crypto.NewRtpEncryptedPayload(0, IV, ciphertextWithTag)
 	encodedPayloadInBytes := encodedPayload.Marshal()
 	return encodedPayloadInBytes, nil
 }
