@@ -61,7 +61,7 @@ type ConferenceRosterIndication struct {
 		BCapsPinMultiVideo bool                 `json:"bCapsPinMultiVideo,omitempty"`
 		BGuest             bool                 `json:"bGuest,omitempty"`
 		BHold              bool                 `json:"bHold,omitempty"`
-		BRaiseHand         bool                 `json:"bRaiseHand,omitempty"`
+		BRaiseHand         *bool                `json:"bRaiseHand,omitempty"`
 		Dn2                BytesBase64NoPadding `json:"dn2,omitempty"`
 		ID                 int                  `json:"id,omitempty"`
 		Os                 int                  `json:"os,omitempty"`
@@ -71,14 +71,15 @@ type ConferenceRosterIndication struct {
 	} `json:"add"`
 	Update []struct {
 		// all these fields are optional
-		Caps     int                  `json:"caps,omitempty"`
-		Dn2      BytesBase64NoPadding `json:"dn2,omitempty"` // renames
-		ID       int                  `json:"id,omitempty"`
-		Muted    bool                 `json:"muted,omitempty"`
-		BVideoOn bool                 `json:"bVideoOn,omitempty"`
-		Audio    string               `json:"audio,omitempty`
-		BCoHost  bool                 `json:"bCoHost,omitempty"`
-		Role     int                  `json:"role,omitempty"`
+		Caps       int                  `json:"caps,omitempty"`
+		Dn2        BytesBase64NoPadding `json:"dn2,omitempty"` // renames
+		ID         int                  `json:"id,omitempty"`
+		Muted      bool                 `json:"muted,omitempty"`
+		BVideoOn   bool                 `json:"bVideoOn,omitempty"`
+		Audio      string               `json:"audio,omitempty`
+		BCoHost    bool                 `json:"bCoHost,omitempty"`
+		BRaiseHand *bool                `json:"bRaiseHand,omitempty"`
+		Role       int                  `json:"role,omitempty"`
 	} `json:"update"`
 	Remove []struct {
 		ID          int `json:"id,omitempty"`

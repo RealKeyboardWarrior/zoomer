@@ -194,6 +194,18 @@ func (session *ZoomSession) RequestAllMute() error {
 	return nil
 }
 
+func (session *ZoomSession) RaiseHand(id int, shouldRaise bool) error {
+	sendBody := BOnRequest{
+		BOn: shouldRaise,
+		ID:  id,
+	}
+	err := session.SendMessage(session.websocketConnection, WS_CONF_RAISE_LOWER_HAND_REQ, sendBody)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // host required
 func (session *ZoomSession) SetMuteUponEntry(status bool) error {
 	sendBody := ConferenceSetMuteUponEntryRequest{
