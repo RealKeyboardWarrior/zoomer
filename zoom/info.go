@@ -41,12 +41,13 @@ func (session *ZoomSession) GetMeetingInfoData() (*MeetingInfo, string, error) {
 	values.Set("meetingNumber", session.MeetingNumber)
 	values.Set("userName", session.Username)
 	values.Set("passWord", session.MeetingPassword)
+	values.Set("signatureType", "api")
 	values.Set("signature", session.generateSignature())
 	// values.Set("apiKey", ZOOM_JWT_API_KEY)
 	values.Set("apiKey", session.ZoomJwtApiKey)
 	values.Set("lang", "en-US")
 	values.Set("userEmail", "")
-	values.Set("cv", "1.8.6")
+	values.Set("cv", "2.12.0")
 	// values.Set("cv", "1.8.5")
 	values.Set("proxy", "1")
 	values.Set("sdkOrigin", "aHR0cDovL2xvY2FsaG9zdDo5OTk5")
@@ -89,7 +90,7 @@ func (session *ZoomSession) GetMeetingInfoData() (*MeetingInfo, string, error) {
 		return newS[:e]
 	}
 
-	jsonData := getStringInBetweenTwoString(data, []byte("osJsonpCallback1("), []byte(")"))
+	jsonData := getStringInBetweenTwoString(data, []byte("axiosJsonpCallback1("), []byte(")"))
 	err = json.Unmarshal(jsonData, &meetingInfo)
 	if err != nil {
 		return nil, "", err
