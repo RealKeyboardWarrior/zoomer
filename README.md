@@ -38,11 +38,20 @@ Because the API keys are associated with your account, using this software may g
 
 ## PLAY WITH DEMO
 
+```bash
+go get github.com/RealKeyboardWarrior/zoomer
+cd $GOPATH/src/github.com/RealKeyboardWarrior/zoomer
+scripts/build.sh
 ```
-$ go get github.com/RealKeyboardWarrior/zoomer
-$ cd $GOPATH/src/github.com/RealKeyboardWarrior/zoomer
-$ scripts/build.sh
-$ ZOOM_JWT_API_KEY="xxx" ZOOM_JWT_API_SECRET="xxx" ./zoomer -meetingNumber xxxxx -password xxxxx
+
+SDK Authentication
+```bash
+ZOOM_SDK_API_KEY="xxx" ZOOM_SDK_API_SECRET="xxx" ./zoomer -meetingNumber xxxxx -password xxxxx
+```
+
+JWT Authentication (deprecated)
+```bash
+ZOOM_JWT_API_KEY="xxx" ZOOM_JWT_API_SECRET="xxx" ./zoomer -meetingNumber xxxxx -password xxxxx
 ```
 
 Feel free to use the demo as a template.  If you want to use the library elsewhere just import `github.com/RealKeyboardWarrior/zoomer/pkg/zoom`.

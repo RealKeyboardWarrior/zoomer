@@ -33,6 +33,7 @@ func main() {
 	}
 
 	// get keys from environment
+	apiType := zoom.ZOOM_JWT_API_TYPE
 	apiKey := os.Getenv("ZOOM_JWT_API_KEY")
 	apiSecret := os.Getenv("ZOOM_JWT_API_SECRET")
 	name := os.Getenv("ZOOM_NAME")
@@ -40,7 +41,7 @@ func main() {
 
 	// create new session
 	// meetingNumber, meetingPassword, username, hardware uuid (can be random but should be relatively constant or it will appear to zoom that you have many many many devices), proxy url, jwt api key, jwt api secret)
-	session, err := zoom.NewZoomSession(meetingInfo.MeetingNumber, meetingInfo.MeetingPassword, name, hwid, "", apiKey, apiSecret)
+	session, err := zoom.NewZoomSession(meetingInfo.MeetingNumber, meetingInfo.MeetingPassword, name, hwid, "", apiType, apiKey, apiSecret)
 	if err != nil {
 		panic(err)
 	}
