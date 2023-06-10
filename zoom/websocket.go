@@ -38,9 +38,12 @@ func (session *ZoomSession) GetWebsocketUrl(meetingInfo *MeetingInfo, wasInWaiti
 	values.Set("ts", strconv.FormatInt(meetingInfo.Result.Ts, 10))
 	values.Set("ZM-CID", session.HardwareID.String()) // this is a hardware id.  you shouldnt have it change a bunch of times per ip or you will look highly suspicious
 	values.Set("_ZM_MTG_TRACK_ID", "")
-	values.Set("jscv", "2.5.0")
+	values.Set("jscv", "2.12.0")
 	values.Set("fromNginx", "false")
 	values.Set("zak", "")
+	if session.ZoomApiType == ZOOM_SDK_API_TYPE {
+		values.Set("signType", "sdk")
+	}
 	values.Set("mpwd", meetingInfo.Result.Password)
 	// The value 2 is required or you will simply never receive a video stream.
 	values.Set("as_type", "2")

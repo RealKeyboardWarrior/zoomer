@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -24,13 +25,29 @@ func httpGet(client *http.Client, url string, headers http.Header) (*http.Respon
 	return client.Do(request)
 }
 
-func (session *ZoomSession) generateSignature() string {
+func (session *ZoomSession) generateSignatureJWT() string {
 	meetingNumber := session.MeetingNumber
 	timestamp := strconv.FormatInt((time.Now().UTC().UnixNano()/1e6)-30000, 10)
 
 	h := hmac.New(sha256.New, []byte(session.ZoomApiSecret))
 	h.Write([]byte(base64.StdEncoding.EncodeToString([]byte(session.ZoomApiKey + meetingNumber + timestamp + ZOOM_ROLE))))
 	return base64.StdEncoding.EncodeToString([]byte(session.ZoomApiKey + "." + meetingNumber + "." + timestamp + "." + ZOOM_ROLE + "." + base64.StdEncoding.EncodeToString(h.Sum(nil))))
+}
+
+func (session *ZoomSession) generateSignatureSDK() string {
+	meetingNumber := session.MeetingNumber
+	// Give ourselves 50 seconds leeway, this code is kinda brittle because it relies on
+	// the clock of the system on which it's running, perhaps we can get this timestamp
+	// from the server directly
+	ts := time.Now().Unix() - 50
+
+	header := []byte(`{"alg":"HS256","typ":"JWT"}`)
+	payload := []byte(fmt.Sprintf(`{"sdkKey":"%s","iat":%d,"exp":%d,"mn":%s,"role":0}`, session.ZoomApiKey, ts, ts+1800, meetingNumber))
+	message := base64.URLEncoding.EncodeToString(header) + "." + base64.URLEncoding.EncodeToString(payload)
+
+	h := hmac.New(sha256.New, []byte(session.ZoomApiSecret))
+	h.Write([]byte(message))
+	return message + "." + base64.URLEncoding.EncodeToString(h.Sum(nil))
 }
 
 func (session *ZoomSession) GetMeetingInfoData() (*MeetingInfo, string, error) {
@@ -41,14 +58,18 @@ func (session *ZoomSession) GetMeetingInfoData() (*MeetingInfo, string, error) {
 	values.Set("meetingNumber", session.MeetingNumber)
 	values.Set("userName", session.Username)
 	values.Set("passWord", session.MeetingPassword)
-	values.Set("signatureType", "api")
-	values.Set("signature", session.generateSignature())
-	// values.Set("apiKey", ZOOM_JWT_API_KEY)
+	switch apiType := session.ZoomApiType; apiType {
+	case ZOOM_JWT_API_TYPE:
+		values.Set("signatureType", "api")
+		values.Set("signature", session.generateSignatureJWT())
+	case ZOOM_SDK_API_TYPE:
+		values.Set("signatureType", "sdk")
+		values.Set("signature", session.generateSignatureSDK())
+	}
 	values.Set("apiKey", session.ZoomApiKey)
 	values.Set("lang", "en-US")
 	values.Set("userEmail", "")
 	values.Set("cv", "2.12.0")
-	// values.Set("cv", "1.8.5")
 	values.Set("proxy", "1")
 	values.Set("sdkOrigin", "aHR0cDovL2xvY2FsaG9zdDo5OTk5")
 	values.Set("tk", "")
@@ -90,6 +111,7 @@ func (session *ZoomSession) GetMeetingInfoData() (*MeetingInfo, string, error) {
 		return newS[:e]
 	}
 
+	log.Printf("%v", string(data))
 	jsonData := getStringInBetweenTwoString(data, []byte("axiosJsonpCallback1("), []byte(")"))
 	err = json.Unmarshal(jsonData, &meetingInfo)
 	if err != nil {

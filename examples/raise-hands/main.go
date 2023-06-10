@@ -33,9 +33,12 @@ func main() {
 	}
 
 	// get keys from environment
-	apiType := zoom.ZOOM_JWT_API_TYPE
-	apiKey := os.Getenv("ZOOM_JWT_API_KEY")
-	apiSecret := os.Getenv("ZOOM_JWT_API_SECRET")
+	apiType := zoom.ZOOM_SDK_API_TYPE
+	if os.Getenv("ZOOM_API_KEY") == "jwt" {
+		apiType = zoom.ZOOM_JWT_API_TYPE
+	}
+	apiKey := os.Getenv("ZOOM_API_KEY")
+	apiSecret := os.Getenv("ZOOM_API_SECRET")
 	name := os.Getenv("ZOOM_NAME")
 	hwid := os.Getenv("ZOOM_HWID")
 
