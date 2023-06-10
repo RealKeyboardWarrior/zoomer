@@ -28,9 +28,9 @@ func (session *ZoomSession) generateSignature() string {
 	meetingNumber := session.MeetingNumber
 	timestamp := strconv.FormatInt((time.Now().UTC().UnixNano()/1e6)-30000, 10)
 
-	h := hmac.New(sha256.New, []byte(session.ZoomJwtApiSecret))
-	h.Write([]byte(base64.StdEncoding.EncodeToString([]byte(session.ZoomJwtApiKey + meetingNumber + timestamp + ZOOM_ROLE))))
-	return base64.StdEncoding.EncodeToString([]byte(session.ZoomJwtApiKey + "." + meetingNumber + "." + timestamp + "." + ZOOM_ROLE + "." + base64.StdEncoding.EncodeToString(h.Sum(nil))))
+	h := hmac.New(sha256.New, []byte(session.ZoomApiSecret))
+	h.Write([]byte(base64.StdEncoding.EncodeToString([]byte(session.ZoomApiKey + meetingNumber + timestamp + ZOOM_ROLE))))
+	return base64.StdEncoding.EncodeToString([]byte(session.ZoomApiKey + "." + meetingNumber + "." + timestamp + "." + ZOOM_ROLE + "." + base64.StdEncoding.EncodeToString(h.Sum(nil))))
 }
 
 func (session *ZoomSession) GetMeetingInfoData() (*MeetingInfo, string, error) {
@@ -44,7 +44,7 @@ func (session *ZoomSession) GetMeetingInfoData() (*MeetingInfo, string, error) {
 	values.Set("signatureType", "api")
 	values.Set("signature", session.generateSignature())
 	// values.Set("apiKey", ZOOM_JWT_API_KEY)
-	values.Set("apiKey", session.ZoomJwtApiKey)
+	values.Set("apiKey", session.ZoomApiKey)
 	values.Set("lang", "en-US")
 	values.Set("userEmail", "")
 	values.Set("cv", "2.12.0")

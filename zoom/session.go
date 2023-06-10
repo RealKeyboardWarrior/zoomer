@@ -13,17 +13,25 @@ import (
 	"github.com/gorilla/websocket"
 )
 
+type ZoomApiType string
+
+const (
+	ZOOM_JWT_API_TYPE ZoomApiType = "jwt"
+	ZOOM_SDK_API_TYPE ZoomApiType = "sdk"
+)
+
 type ZoomSession struct {
 	mu sync.Mutex
 
-	MeetingNumber    string
-	MeetingPassword  string
-	Username         string
-	HardwareID       uuid.UUID
-	ZoomJwtApiKey    string
-	ZoomJwtApiSecret string
-	JoinInfo         *JoinConferenceResponse
-	ProxyURL         *url.URL
+	MeetingNumber   string
+	MeetingPassword string
+	Username        string
+	HardwareID      uuid.UUID
+	ZoomApiType     ZoomApiType
+	ZoomApiKey      string
+	ZoomApiSecret   string
+	JoinInfo        *JoinConferenceResponse
+	ProxyURL        *url.URL
 
 	meetingOpt          string
 	httpClient          *http.Client
@@ -35,8 +43,8 @@ type ZoomSession struct {
 	RwgCookie string
 }
 
-func NewZoomSession(meetingNumber string, meetingPassword string, username string, hardwareID string, proxyURL string, zoomJwtApiKey string, zoomJwtApiSecret string) (*ZoomSession, error) {
-	if meetingNumber == "" || meetingPassword == "" || username == "" || hardwareID == "" || zoomJwtApiKey == "" || zoomJwtApiSecret == "" {
+func NewZoomSession(meetingNumber string, meetingPassword string, username string, hardwareID string, proxyURL string, zoomApiType ZoomApiType, zoomApiKey string, zoomApiSecret string) (*ZoomSession, error) {
+	if meetingNumber == "" || meetingPassword == "" || username == "" || hardwareID == "" || zoomApiKey == "" || zoomApiSecret == "" {
 		return nil, errors.New("Please make sure to provide values for meeting number, meeting password, username, hardware ID (hardware ID must be in the format of UUID), and API key/secret.")
 	}
 	uuidParsed, err := uuid.Parse(hardwareID)
@@ -44,12 +52,13 @@ func NewZoomSession(meetingNumber string, meetingPassword string, username strin
 		return nil, err
 	}
 	session := ZoomSession{
-		MeetingNumber:    strings.Replace(meetingNumber, " ", "", -1), // remove all
-		MeetingPassword:  meetingPassword,
-		Username:         username,
-		HardwareID:       uuidParsed,
-		ZoomJwtApiKey:    zoomJwtApiKey,
-		ZoomJwtApiSecret: zoomJwtApiSecret,
+		MeetingNumber:   strings.Replace(meetingNumber, " ", "", -1), // remove all
+		MeetingPassword: meetingPassword,
+		Username:        username,
+		HardwareID:      uuidParsed,
+		ZoomApiType:     zoomApiType,
+		ZoomApiKey:      zoomApiKey,
+		ZoomApiSecret:   zoomApiSecret,
 	}
 
 	session.httpClient = &http.Client{
