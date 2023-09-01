@@ -5,9 +5,10 @@ import (
 )
 
 type MeetingInfo struct {
-	Status    bool `json:"status"`
-	ErrorCode int  `json:"errorCode"`
-	Result    struct {
+	Status       bool   `json:"status"`
+	ErrorCode    int    `json:"errorCode"`
+	ErrorMessage string `json:"ErrorMessage"`
+	Result       struct {
 		Password                string                   `json:"passWord"`
 		Auth                    string                   `json:"auth"`
 		IsWebinar               int                      `json:"isWebinar,string"`
