@@ -118,6 +118,10 @@ func (session *ZoomSession) GetMeetingInfoData() (*MeetingInfo, string, error) {
 		return nil, "", err
 	}
 
+	if meetingInfo.ErrorCode > 0 {
+		return nil, "", fmt.Errorf(meetingInfo.ErrorMessage)
+	}
+
 	var cookieString string
 	for _, cookieValue := range response.Cookies() {
 		// skip "cred" and empty cookies

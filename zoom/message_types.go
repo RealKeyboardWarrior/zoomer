@@ -71,15 +71,17 @@ type ConferenceRosterIndication struct {
 	} `json:"add"`
 	Update []struct {
 		// all these fields are optional
-		Caps       int                  `json:"caps,omitempty"`
-		Dn2        BytesBase64NoPadding `json:"dn2,omitempty"` // renames
-		ID         int                  `json:"id,omitempty"`
-		Muted      bool                 `json:"muted,omitempty"`
-		BVideoOn   bool                 `json:"bVideoOn,omitempty"`
-		Audio      string               `json:"audio,omitempty`
-		BCoHost    bool                 `json:"bCoHost,omitempty"`
-		BRaiseHand *bool                `json:"bRaiseHand,omitempty"`
-		Role       int                  `json:"role,omitempty"`
+		Caps                  int                  `json:"caps,omitempty"`
+		Dn2                   BytesBase64NoPadding `json:"dn2,omitempty"` // renames
+		ID                    int                  `json:"id,omitempty"`
+		Muted                 bool                 `json:"muted,omitempty"`
+		BVideoOn              bool                 `json:"bVideoOn,omitempty"`
+		Audio                 string               `json:"audio,omitempty"`
+		AudioConnectionStatus int                  `json:"audioConnectionStatus,omitempty"`
+		BAudioUnencrypted     bool                 `json:"bAudioUnencrytped,omitempty"`
+		BCoHost               bool                 `json:"bCoHost,omitempty"`
+		BRaiseHand            *bool                `json:"bRaiseHand,omitempty"`
+		Role                  int                  `json:"role,omitempty"`
 	} `json:"update"`
 	Remove []struct {
 		ID          int `json:"id,omitempty"`
@@ -109,7 +111,7 @@ type AudioMuteAllRequest struct {
 
 // TODO: merge these
 type BOnRequest struct {
-	BOn bool `json:"bOn"`
+	BOn bool `json:"bOn,omitempty"`
 	ID  int  `json:"id,omitempty"` // default is you, if you specify id (I think??) you can get other people
 }
 
@@ -121,8 +123,13 @@ type ConferenceSetMuteUponEntryRequest BOnRequest
 type ConferenceAllowUnmuteAudioRequest BOnRequest
 type ConferenceAllowParticipantRenameRequest BOnRequest
 type ConferenceAllowUnmuteVideoRequest BOnRequest
-type AudioVoipJoinChannelRequest BOnRequest
 type VideoMuteRequest BOnRequest
+
+// TODO: refactor the whole codebase to allow for pointers when omitempty :|
+type AudioVoipJoinChannelRequest struct {
+	BOn *bool `json:"bOn,omitempty"`
+	ID  *int  `json:"id,omitempty"`
+}
 
 type AudioVoipStatusRequest struct {
 	OldAudioConnectionStatus int `json:"oldAudioConnectionStatus"`

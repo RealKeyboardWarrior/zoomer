@@ -59,37 +59,24 @@ func main() {
 		case *zoom.ConferenceRosterIndication:
 			// if we get an indication that someone joined the meeting, welcome them
 			for _, person := range m.Add {
-				// don't welcome ourselves
-				if person.ID != session.JoinInfo.UserID {
-					// you could switch out EVERYONE_CHAT_ID with person.ID to private message them instead of sending the welcome to everyone
-					session.SendChatMessage(zoom.EVERYONE_CHAT_ID, "Welcome to the meeting, "+string(person.Dn2)+"!")
-				}
 				if streams != nil {
 					streams.AddParticipant(person.ID, person.ZoomID)
 				}
 			}
 			for _, person := range m.Update {
-				if person.ID != session.JoinInfo.UserID {
-					if person.BVideoOn {
-						// Start listening to their video feed
-						// {"evt":12303,"body":{"subInfoList":[{"id":16778240,"size":2,"bOn":false}]},"seq":18}
-						session.VideoSubscribeRequest(person.ID, 4)
-					} else {
-						// Stop listening to their video feed
-						// {"evt":12305,"body":{"subIDList":[{"id":16778240}]},"seq":17}
-						// TODO: fix is buggy because BVideoOn can be null, and not mean false..
-						// session.VideoUnsubscribeRequest(person.ID)
-					}
+				if person.AudioConnectionStatus == 2 {
+					err = session.MuteUser(person.ID, true)
 				}
 			}
 			return nil
 		case *zoom.JoinConferenceResponse:
 			// TODO(hackish): move this elsewhere
-			streams, err = zoom.CreateZoomVideoStreams(session)
+			streams, err = zoom.CreateZoomAudioStreams(session)
 			if err != nil {
 				return err
 			}
 			log.Printf("%v", streams)
+
 			return nil
 		case *zoom.SharingEncryptKeyIndication:
 			// A1. Get sharing encryption key
@@ -98,28 +85,21 @@ func main() {
 				return err
 			}
 
-			// A2. Announce our own stream sharing
-			/*
-				err = session.SetShareStatus(true, false)
-				if err != nil {
-					return err
-				}
-			*/
-			return nil
-		case *zoom.SharingAssignedSendingSsrcResponse:
-			// A3. Start broadcasting
-			// streams.StartBroadcast(m.SSRC)
-			return nil
-		case *zoom.SharingStatusIndication:
-			streams.AddSsrcForParticipant(m.ActiveNodeID, m.Ssrc)
-			// Signal subscribition to anyone else
-			// session.SharingSubscribeRequest(m.ActiveNodeID, 1)
-			return nil
-		case *zoom.VideoActiveIndication:
-			log.Printf("VideoActiveIndication = %v", message)
-			return nil
-		case *zoom.SSRCIndication:
-			log.Printf("SSRCIndication = %v", message)
+			// A2. Join the audio channel
+			err = session.SignalAudioStatus(0, 1)
+			if err != nil {
+				return err
+			}
+
+			err = session.JoinAudioVoipChannel(true)
+			if err != nil {
+				return err
+			}
+
+			err = session.SignalAudioStatus(1, 2)
+			if err != nil {
+				return err
+			}
 			return nil
 		default:
 			return nil

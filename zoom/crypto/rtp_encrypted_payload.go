@@ -1,7 +1,6 @@
 package crypto
 
 import (
-	"bytes"
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
@@ -9,35 +8,70 @@ import (
 )
 
 var (
-	VERSION_0 = []byte{0, 0}
-	VERSION_1 = []byte{0, 1}
+	PREFIX    = []byte{0}
+	VERSION_0 = byte(0)
+	VERSION_1 = byte(1)
 	SUFFIX    = []byte{0}
 )
 
 const (
-	LEN_VERSION = 2 // Should match len(PREFIX)
-	LEN_SUFFIX  = 1 // Should match len(SUFFIX)
-	LEN_BODY    = 2
-	LEN_LEN_IV  = 1
-	LEN_IV      = 12
-	LEN_TAG     = 16
+	LEN_PREFIX        = 1
+	LEN_VERSION       = 1 // Should match len(PREFIX)
+	LEN_SUFFIX        = 1 // Should match len(SUFFIX)
+	LEN_BODY          = 2
+	LEN_LEN_IV        = 1
+	LEN_IV            = 12
+	LEN_TAG           = 16
+	LEN_ACTUAL_HEADER = LEN_BODY + LEN_LEN_IV + LEN_IV
+	LEN_HEADER        = LEN_PREFIX /* 00 prefix */ + LEN_VERSION + LEN_ACTUAL_HEADER /* actual header */ + LEN_SUFFIX /* 0 suffix */
 )
 
 type RtpEncryptedPayload struct {
-	IV         []byte
-	Ciphertext []byte
-	Tag        []byte
+	Version       uint8
+	LenCiphertext uint32
+	LenIV         uint8
+	IV            []byte
+	Ciphertext    []byte
+	Tag           []byte
 }
 
-func NewRtpEncryptedPayload(IV []byte, CiphertextWithTag []byte) *RtpEncryptedPayload {
+func NewRtpEncryptedPayload(version uint8, IV []byte, CiphertextWithTag []byte) *RtpEncryptedPayload {
 	// TODO: assert it has at least length of tag or more
 	Ciphertext := CiphertextWithTag[:len(CiphertextWithTag)-LEN_TAG]
 	Tag := CiphertextWithTag[len(CiphertextWithTag)-LEN_TAG:]
 	return &RtpEncryptedPayload{
-		IV,
-		Ciphertext,
-		Tag,
+		Version:       version,
+		LenCiphertext: uint32(len(Ciphertext)),
+		LenIV:         LEN_LEN_IV,
+		IV:            IV,
+		Ciphertext:    Ciphertext,
+		Tag:           Tag,
 	}
+}
+
+func (encryptedPayload *RtpEncryptedPayload) UnmarshalHeader(header []byte) error {
+	if header == nil {
+		return ErrNoData
+	}
+
+	if len(header) < LEN_ACTUAL_HEADER {
+		return fmt.Errorf("payload does not have required header size")
+	}
+
+	header = header[:LEN_ACTUAL_HEADER]
+	lenCiphertext := uint32(binary.BigEndian.Uint16(header[0:2]))
+	lenIV := uint8(header[2])
+	IV := header[3:]
+
+	if lenIV != LEN_IV {
+		return fmt.Errorf("header does not have IV size of %v received %v instead", LEN_IV, encryptedPayload.LenIV)
+	}
+
+	encryptedPayload.LenCiphertext = lenCiphertext
+	encryptedPayload.LenIV = lenIV
+	encryptedPayload.IV = IV
+
+	return nil
 }
 
 func (encryptedPayload *RtpEncryptedPayload) Unmarshal(payload []byte) error {
@@ -45,43 +79,36 @@ func (encryptedPayload *RtpEncryptedPayload) Unmarshal(payload []byte) error {
 		return ErrNoData
 	}
 
-	lenActualHeader := LEN_BODY + LEN_LEN_IV + LEN_IV
-	lenHeader := LEN_VERSION /* 00 prefix */ + lenActualHeader /* actual header */ + LEN_SUFFIX /* 0 suffix */
-
-	if len(payload) < lenHeader {
+	if len(payload) < LEN_HEADER {
 		return fmt.Errorf("payload does not have required header size")
 	}
+	header := payload[LEN_PREFIX+LEN_VERSION : LEN_PREFIX+LEN_VERSION+LEN_ACTUAL_HEADER]
 
-	version := payload[:LEN_VERSION]
-	if !(bytes.Equal(version, VERSION_0) || bytes.Equal(version, VERSION_1)) {
-		return fmt.Errorf("payload failed version check version = %v", version)
+	version := header[0]
+	if !(version != VERSION_0 || version != VERSION_1) {
+		return fmt.Errorf("header failed version check version = %v", version)
 	}
 
-	header := payload[LEN_VERSION:lenActualHeader]
-	lenIV := int(header[2])
-
-	if lenIV != LEN_IV {
-		return fmt.Errorf("payload does not have IV size of %v received %v instead", LEN_IV, lenIV)
+	// Unmarshal the header, skip prefix and suffix
+	err := encryptedPayload.UnmarshalHeader(header)
+	if err != nil {
+		return err
 	}
-	IV := header[3 : 3+lenIV]
 
-	lenBody := int(binary.BigEndian.Uint16(header[0:2]))
-	if len(payload) < lenHeader+lenBody+LEN_TAG {
+	lenCiphertext := int(encryptedPayload.LenCiphertext)
+	if len(payload) < LEN_HEADER+lenCiphertext+LEN_TAG {
 		return fmt.Errorf("payload does not have required size")
 	}
+	ciphertextWithTag := payload[LEN_HEADER : LEN_HEADER+lenCiphertext+LEN_TAG]
+	ciphertext := ciphertextWithTag[0:lenCiphertext]
+	tag := ciphertextWithTag[lenCiphertext : lenCiphertext+LEN_TAG]
 
-	ciphertext := payload[lenHeader : lenHeader+lenBody]
-	tag := payload[lenHeader+lenBody : lenHeader+lenBody+LEN_TAG]
-	if len(tag) != LEN_TAG {
-		return fmt.Errorf("payload does not have tag size of %v received %v instead", LEN_TAG, len(tag))
-	}
-
-	if len(payload) > lenHeader+lenBody+LEN_TAG {
-		additionalData := payload[lenHeader+lenBody+LEN_TAG:]
+	if len(payload) > LEN_HEADER+lenCiphertext+LEN_TAG {
+		additionalData := payload[LEN_HEADER+lenCiphertext+LEN_TAG:]
 		log.Printf("found additional data = %v", hex.EncodeToString(additionalData))
 	}
 
-	encryptedPayload.IV = IV
+	encryptedPayload.Version = uint8(version)
 	encryptedPayload.Ciphertext = ciphertext
 	encryptedPayload.Tag = tag
 	return nil
@@ -98,10 +125,12 @@ func (encryptedPayload *RtpEncryptedPayload) Marshal() []byte {
 
 	/*
 	 Finalize encrypted payload
-	 [ VERSION_0 ] [ length body ] [ length iv ] [ iv ] [ SUFFIX ] [ ciphertext ] [ tag ]
+	 [ PREFIX ] [ VERSION_0 ] [ length body ] [ length iv ] [ iv ] [ SUFFIX ] [ ciphertext ] [ tag ]
 	*/
 	// TODO: use VERSION_1 for screenshare
-	header := append(VERSION_0, lenBody...)
+	header := append([]byte{}, PREFIX...)
+	header = append(header, VERSION_0)
+	header = append(header, lenBody...)
 	header = append(header, lenIV...)
 	header = append(header, encryptedPayload.IV...)
 	header = append(header, SUFFIX...)

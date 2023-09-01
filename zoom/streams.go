@@ -11,7 +11,9 @@ import (
 	"net/http"
 	"net/url"
 
+	"github.com/RealKeyboardWarrior/zoomer/zoom/codecs/opus"
 	"github.com/RealKeyboardWarrior/zoomer/zoom/rtp"
+	"github.com/RealKeyboardWarrior/zoomer/zoom/streampkt"
 	"github.com/gorilla/websocket"
 )
 
@@ -19,6 +21,7 @@ const (
 	PING                = 0x00
 	RTP_SCREENSHARE_PKT = 0x4D
 	// RTP_VIDEO_PKT          = 0x02 // DEPRECRATED!
+	RTP_AUDIO_PKT    = 0x6B
 	RTP_VIDEO_PKT    = 0x67
 	RTCP             = 0x4E
 	AES_GCM_IV_VALUE = 0x42
@@ -43,6 +46,45 @@ func createWebSocketUrl(session *ZoomSession, subType string, mode string) strin
 		RawQuery: values.Encode(),
 	}
 	return url.String()
+}
+
+func CreateZoomAudioStreams(session *ZoomSession) (*ZoomStreams, error) {
+	if session.JoinInfo == nil {
+		return nil, errors.New("Zoom session does not have valid JoinInfo")
+	}
+
+	if session.RwgInfo == nil {
+		return nil, errors.New("Zoom session does not have valid RwgInfo")
+	}
+
+	if session.JoinInfo.ZoomID == "" {
+		return nil, errors.New("Zoom session does not have valid ZoomID")
+	}
+
+	// Normal video camera sharing
+	downstream := createWebSocketUrl(session, "a", "5")
+	recv, err := createWebsocket("recv", downstream)
+	if err != nil {
+		return nil, err
+	}
+
+	// Upstream for both screenshare and audio is 2.
+	// TODO: should be for video as well - verify
+	upstream := createWebSocketUrl(session, "a", "2")
+	send, err := createWebsocket("send", upstream)
+	if err != nil {
+		return nil, err
+	}
+
+	final := &ZoomStreams{
+		recv:    recv,
+		send:    send,
+		decoder: rtp.NewZoomRtpDecoder(rtp.STREAM_TYPE_AUDIO),
+	}
+
+	go final.StartReceiveChannel()
+
+	return final, nil
 }
 
 func CreateZoomVideoStreams(session *ZoomSession) (*ZoomStreams, error) {
@@ -168,6 +210,16 @@ func (streams *ZoomStreams) StartReceiveChannel() {
 	}
 	defer recorder.Close()
 
+	audioRecorder, err := opus.CreateNewPCMRecorder()
+	if err != nil {
+		log.Fatal(err)
+	}
+	go (func() {
+		time.Sleep(20 * time.Second)
+		audioRecorder.Close()
+	})()
+	//defer audioRecorder.Close()
+
 	decoder := streams.decoder
 
 	for {
@@ -185,6 +237,27 @@ func (streams *ZoomStreams) StartReceiveChannel() {
 				return
 			}
 			// RTP packet
+		} else if p[0] == RTP_AUDIO_PKT {
+			zoomPkt := &streampkt.ZoomAudioPkt{}
+			err := zoomPkt.Unmarshal(p)
+			if err != nil {
+				log.Fatal(err)
+				return
+			}
+			log.Printf("%v", zoomPkt)
+			sample, err := decoder.Decode(zoomPkt.Rtp)
+			if err != nil {
+				log.Fatal(err)
+				return
+			}
+
+			if sample != nil {
+				err = audioRecorder.Record(sample)
+				if err != nil {
+					log.Fatal(err)
+					return
+				}
+			}
 		} else if p[0] == RTP_SCREENSHARE_PKT || p[0] == RTP_VIDEO_PKT {
 			log.Printf("pkt = %v", hex.EncodeToString(p))
 			start := 4

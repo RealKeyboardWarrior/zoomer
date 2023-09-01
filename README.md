@@ -8,10 +8,10 @@ Here is a demo of a basic, ~130 lines of code bot:
 ## Audio, Video & Screenshare support
 
 * Audio
-    * ❌ Listening WebSocket
-    * ❌ RTP decoding
-    * ❌ Audio packets decoding
-    * ❌ Publishing WebSocket 
+    * ✅ Listening WebSocket
+    * ✅ RTP decoding
+    * ❌ Audio packets decoding (unable to mux/format the audio packets into readable format)
+    * ✅ Publishing WebSocket 
 * Video
     * ✅ Viewing WebSocket 
     * ✅ RTP decoding

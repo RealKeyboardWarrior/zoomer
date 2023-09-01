@@ -66,7 +66,7 @@ func (roster *ZoomParticipantRoster) GetSecretNonceForSSRC(ssrcNeedle int) ([]by
 		}
 		// There seems to be a relation between userId (17778240) and ssrc id (17778242)
 		// so let's try converting ssrc to node id as a backup as well.
-		if participant.userId == (ssrcNeedle/10)*10 {
+		if (participant.userId/10)*10 == (ssrcNeedle/10)*10 {
 			found = true
 			secretNonce = participant.secretNonce
 		}
