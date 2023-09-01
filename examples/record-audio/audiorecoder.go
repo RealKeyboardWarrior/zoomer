@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"io"
 	"log"
 	"os"
 	"time"
@@ -17,7 +18,8 @@ func main() {
 	}
 	defer f.Close()
 
-	log.SetOutput(f)
+	mw := io.MultiWriter(os.Stdout, f)
+	log.SetOutput(mw)
 
 	meetingUrl := flag.String("url", "", "Meeting URL")
 	flag.Parse()
