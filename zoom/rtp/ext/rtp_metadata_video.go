@@ -11,10 +11,13 @@ import (
 func DecodeVideoMetadata(rtpPacket *rtp.Packet) (*RtpMetadata, error) {
 	// 1. Decode RTP extensions
 	extensions := rtpPacket.GetExtensionIDs()
-	if len(extensions) != 0 {
-		log.Printf("warn: DecodeVideo expected 0 extensions to be provided, instead got extension ids = %v", extensions)
+	for _, id := range extensions {
+		switch id {
+		default:
+			extensionData := rtpPacket.GetExtension(id)
+			log.Printf("rtp extensions found unknown ext id=%v data=%v", id, hex.EncodeToString(extensionData))
+		}
 	}
-
 	if rtpPacket.PayloadType == 110 {
 		log.Printf("rtp [PT type=10] payload=%v", hex.EncodeToString(rtpPacket.Payload))
 		return nil, nil
