@@ -123,6 +123,7 @@ func (parser *ZoomRtpDecoder) Decode(rawPkt []byte) (*media.Sample, error) {
 		return nil, err
 	}
 	if metadata == nil {
+		log.Printf("metadata is nil, returning")
 		return nil, nil
 	}
 
