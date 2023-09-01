@@ -13,7 +13,7 @@ func DecodeScreenShareMetadata(rtpPacket *rtp.Packet) (*RtpMetadata, error) {
 	extensions := rtpPacket.GetExtensionIDs()
 	for _, id := range extensions {
 		switch id {
-		case RTP_EXTENSION_ID_UUID, RTP_EXTENSION_ID_RESOLUTION, RTP_EXTENSION_ID_FRAME_INFO:
+		case RTP_EXTENSION_ID_UUID, RTP_EXTENSION_ID_SCREENSHARE_RESOLUTION, RTP_EXTENSION_ID_SCREENSHARE_FRAME_INFO:
 		default:
 			extensionData := rtpPacket.GetExtension(id)
 			log.Printf("rtp extensions found unknown ext id=%v data=%v", id, hex.EncodeToString(extensionData))
@@ -22,7 +22,7 @@ func DecodeScreenShareMetadata(rtpPacket *rtp.Packet) (*RtpMetadata, error) {
 
 	id := rtpPacket.GetExtension(RTP_EXTENSION_ID_UUID)
 
-	resolutionBytes := rtpPacket.GetExtension(RTP_EXTENSION_ID_RESOLUTION)
+	resolutionBytes := rtpPacket.GetExtension(RTP_EXTENSION_ID_SCREENSHARE_RESOLUTION)
 	var resolutionMeta *RtpExtResolution
 	if len(resolutionBytes) > 0 {
 		resolutionMeta = &RtpExtResolution{}
@@ -32,7 +32,7 @@ func DecodeScreenShareMetadata(rtpPacket *rtp.Packet) (*RtpMetadata, error) {
 			return nil, err
 		}
 	}
-	svcBytes := rtpPacket.GetExtension(RTP_EXTENSION_ID_FRAME_INFO)
+	svcBytes := rtpPacket.GetExtension(RTP_EXTENSION_ID_SCREENSHARE_FRAME_INFO)
 	var svcMeta *RtpExtFrameInfo
 	if len(svcBytes) > 0 {
 		svcMeta = &RtpExtFrameInfo{}

@@ -79,7 +79,7 @@ func (parser *ZoomRtpEncoder) Encode(payload []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		p.Header.SetExtension(ext.RTP_EXTENSION_ID_RESOLUTION, resolution)
+		p.Header.SetExtension(ext.RTP_EXTENSION_ID_SCREENSHARE_RESOLUTION, resolution)
 	}
 
 	// Set extension screen size
@@ -87,7 +87,7 @@ func (parser *ZoomRtpEncoder) Encode(payload []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	p.Header.SetExtension(ext.RTP_EXTENSION_ID_RESOLUTION, rtpResolution)
+	p.Header.SetExtension(ext.RTP_EXTENSION_ID_SCREENSHARE_RESOLUTION, rtpResolution)
 
 	// TODO: extension frame info should probably be more advanced
 	rtpFrameInfo := &ext.RtpExtFrameInfo{
@@ -106,7 +106,7 @@ func (parser *ZoomRtpEncoder) Encode(payload []byte) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	p.Header.SetExtension(ext.RTP_EXTENSION_ID_FRAME_INFO, rtpFrameInfoBytes)
+	p.Header.SetExtension(ext.RTP_EXTENSION_ID_SCREENSHARE_FRAME_INFO, rtpFrameInfoBytes)
 
 	rawPkt, err := p.Marshal()
 	if err != nil {
