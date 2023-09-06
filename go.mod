@@ -3,6 +3,7 @@ module github.com/RealKeyboardWarrior/zoomer
 go 1.14
 
 require (
+	github.com/RealKeyboardWarrior/joy4 v1.0.31 // indirect
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/websocket v1.4.2
 	github.com/joho/godotenv v1.4.0
