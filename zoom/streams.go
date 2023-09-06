@@ -3,15 +3,14 @@ package zoom
 import (
 	"encoding/hex"
 	"errors"
-	"io"
 	"log"
-	"os"
 	"time"
 
 	"net/http"
 	"net/url"
 
 	"github.com/RealKeyboardWarrior/zoomer/zoom/codecs/opus"
+	"github.com/RealKeyboardWarrior/zoomer/zoom/formats/mp4"
 	"github.com/RealKeyboardWarrior/zoomer/zoom/rtp"
 	"github.com/RealKeyboardWarrior/zoomer/zoom/streampkt"
 	"github.com/gorilla/websocket"
@@ -162,16 +161,6 @@ func CreateZoomScreenShareStreams(session *ZoomSession) (*ZoomStreams, error) {
 	return final, nil
 }
 
-func Recorder() (io.WriteCloser, error) {
-	f, err := os.Create(time.Now().Format("2006-01-02-15-04-05") + ".h264")
-	if err != nil {
-		return nil, err
-	}
-	return f, nil
-	// defer f.Close()
-	// n2, err := f.Write(d2)
-}
-
 func createWebsocket(name string, websocketUrl string) (*websocket.Conn, error) {
 	log.Printf("CreateZoomStreams: dialing url= %v", websocketUrl)
 	dialer := websocket.Dialer{
@@ -204,11 +193,18 @@ func (streams *ZoomStreams) StartReceiveChannel() {
 	}
 	connection.SetCloseHandler(closeHandler)
 
-	recorder, err := Recorder()
+	videoRecorder, err := mp4.NewRecorder()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer recorder.Close()
+	go (func() {
+		time.Sleep(60 * time.Second)
+		err := videoRecorder.Close()
+		if err != nil {
+			panic(err)
+		}
+	})()
+	//defer videoRecorder.Close()
 
 	audioRecorder, err := opus.CreateNewPCMRecorder()
 	if err != nil {
@@ -270,7 +266,7 @@ func (streams *ZoomStreams) StartReceiveChannel() {
 				return
 			}
 			if sample != nil {
-				_, err = recorder.Write(sample.Data)
+				err = videoRecorder.WritePacket(sample.Data, sample.Duration)
 				if err != nil {
 					log.Fatal(err)
 					return
