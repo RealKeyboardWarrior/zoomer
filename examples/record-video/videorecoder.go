@@ -73,7 +73,7 @@ func main() {
 					if person.BVideoOn {
 						// Start listening to their video feed
 						// {"evt":12303,"body":{"subInfoList":[{"id":16778240,"size":2,"bOn":false}]},"seq":18}
-						session.VideoSubscribeRequest(person.ID, 4)
+						session.VideoSubscribeRequest(person.ID, 4) // HQ: 4, MED: 3
 					} else {
 						// Stop listening to their video feed
 						// {"evt":12305,"body":{"subIDList":[{"id":16778240}]},"seq":17}

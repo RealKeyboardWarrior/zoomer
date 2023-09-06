@@ -74,18 +74,18 @@ func (parser *ZoomRtpDecoder) getSampleBuilderFor(ssrc uint32) (*samplebuilder.S
 		}
 
 		// TODO: think about reasonable max late
-		maxLate := uint16(400)
-		// TODO: add audio support
+		maxLate := uint16(400) // Amount of RTP packets that can be in the queue
+		var sampleRate uint32
 		var depacketizer rtp.Depacketizer
 		switch parser.streamType {
 		case STREAM_TYPE_SCREENSHARE, STREAM_TYPE_VIDEO:
 			depacketizer = h264.NewVideoDepacketizer(decryptor)
+			sampleRate = uint32(90000)
 		case STREAM_TYPE_AUDIO:
 			depacketizer = opus.NewAudioDepacketizer(decryptor)
+			sampleRate = uint32(16000)
 		}
 
-		// TODO: fix sample rate
-		sampleRate := uint32(1)
 		parser.sampleBuilders[ssrc] = samplebuilder.New(maxLate, depacketizer, sampleRate)
 	}
 	return parser.sampleBuilders[ssrc], nil
@@ -100,6 +100,7 @@ func (parser *ZoomRtpDecoder) Decode(rawPkt []byte) (*media.Sample, error) {
 		return nil, err
 	}
 
+	log.Printf("rtp: active decoder %v", parser.streamType)
 	log.Printf("rtp header [M = %v] [PT type=%v] [SN seq=%v] [TS timestamp=%v] [P padding=%v size=%v] [ssrc=%v csrc=%v]", rtpPacket.Marker, rtpPacket.PayloadType, rtpPacket.SequenceNumber, rtpPacket.Timestamp, rtpPacket.Padding, rtpPacket.PaddingSize, rtpPacket.SSRC, rtpPacket.CSRC)
 	log.Printf("rtp payload [PYLD size=%v data=%v]", len(rtpPacket.Payload), hex.EncodeToString(rtpPacket.Payload))
 
@@ -143,13 +144,29 @@ func (parser *ZoomRtpDecoder) Decode(rawPkt []byte) (*media.Sample, error) {
 	// 4. Push the RTP packet to the sampleBuilder, this re-orders the packets based
 	// on the RTP Sequence, they may arrive out of order aggregates them and calls
 	// the correct depacketizer (VideoDepacketizer / AudioDepacketizer).
-	sampleBuilder.Push(rtpPacket)
+	switch parser.streamType {
+	case STREAM_TYPE_VIDEO:
+		if rtpPacket.PayloadType == 98 {
+			sampleBuilder.Push(rtpPacket)
+		} else {
+			log.Printf("ZoomRtpDecoder: skipping writing RTP packet to SampleBuilder because wrong PT")
+			return nil, nil
+		}
+	case STREAM_TYPE_SCREENSHARE:
+		fallthrough
+	case STREAM_TYPE_AUDIO:
+		sampleBuilder.Push(rtpPacket)
+	}
 
 	// 5. Pop a sample, may return nil if no packets are ready yet.
 	sample := sampleBuilder.Pop()
 	// WARNING: SAMPLE THAT WAS POPPED MAY NOT BE ASSOCIATED WITH THE RTP PACKET!
 	// THIS IS BECAUSE THE SAMPLE BUILDER ALWAYS LAGS BEHIND ONE PACKET AND MAY
 	// AGGREGATE PACKETS IN THE CASE OF VIDEO STREAMS.
+
+	if sample != nil && sample.PrevDroppedPackets > 0 {
+		log.Printf("ZoomRtpDecoder: dropped %v packets", sample.PrevDroppedPackets)
+	}
 
 	return sample, nil
 }
