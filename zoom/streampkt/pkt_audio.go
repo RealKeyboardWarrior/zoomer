@@ -26,8 +26,8 @@ func (pkt *ZoomAudioPkt) Unmarshal(data []byte) error {
 	pkt.lenRtp = rtpPktSize
 	pkt.Rtp = rtpPkt
 
-	if len(data) > int(45+rtpPktSize) {
-		pkt.AdditionalData = data[45+rtpPktSize:]
+	if len(data) > int(23+rtpPktSize) {
+		pkt.AdditionalData = data[23+rtpPktSize:]
 	}
 	return nil
 }
