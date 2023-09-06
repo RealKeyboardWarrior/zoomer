@@ -37,13 +37,13 @@ func (depacketizer *VideoDepacketizer) Unmarshal(packet []byte) ([]byte, error) 
 		}
 
 		// 4. Decrypt the ciphertext
-		log.Printf("body iv=%v body=%v tag=%v", hex.EncodeToString(decodedPayload.IV), hex.EncodeToString(decodedPayload.Ciphertext), hex.EncodeToString(decodedPayload.Tag))
+		log.Printf("crypto: body iv=%v body=%v tag=%v", hex.EncodeToString(decodedPayload.IV), hex.EncodeToString(decodedPayload.Ciphertext), hex.EncodeToString(decodedPayload.Tag))
 		ciphertextWithTag := append(decodedPayload.Ciphertext, decodedPayload.Tag...)
 		plaintext, err := depacketizer.decryptor.Decrypt(decodedPayload.IV, ciphertextWithTag)
 		if err != nil {
 			return nil, err
 		}
-		log.Printf("rtp: decrypted=%v", hex.EncodeToString(plaintext))
+		log.Printf("crypto: decrypted=%v", hex.EncodeToString(plaintext))
 
 		return plaintext, nil
 	} else {
