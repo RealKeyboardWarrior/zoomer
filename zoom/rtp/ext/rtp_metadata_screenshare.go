@@ -45,7 +45,7 @@ func DecodeScreenShareMetadata(rtpPacket *rtp.Packet) (*RtpMetadata, error) {
 	log.Printf("rtp extensions [RtpId id=%v] [meta=%v] [%v]", id, svcMeta, resolutionMeta)
 
 	if rtpPacket.PayloadType == 110 {
-		log.Printf("rtp [PT type=10] payload=%v", hex.EncodeToString(rtpPacket.Payload))
+		log.Printf("rtp [PT type=%v] payload=%v", rtpPacket.PayloadType, hex.EncodeToString(rtpPacket.Payload))
 		return nil, nil
 	} else if rtpPacket.PayloadType == 99 {
 		// Expected payload format
